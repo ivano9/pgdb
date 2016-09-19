@@ -48,8 +48,8 @@
 -export([batch_query/4]).
 -export([batch_query/5]).
 -export([close/1]).
--export([create_schema/1]).
 -export([create_schema/2]).
+-export([create_schema/3]).
 -export([drop_schema/1]).
 -export([extended_query/2]).
 -export([extended_query/3]).
@@ -105,6 +105,7 @@
 %% Opens a new database connection. 
 %% This function is called by the pool manager every time it needs a new 
 %% connection. There is no need for you to use it directly.
+%% Args are the same for pgsql_connection:open/1.
 %% @end
 %% -----------------------------------------------------------------------------
 -spec open(list()) -> {ok, pid()}.
@@ -130,7 +131,10 @@ close(Pid) ->
 %% ============================================================================
 
 
-
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
 abort(Reason) ->
     throw(Reason).
 
@@ -238,7 +242,7 @@ fetch_schema(Name) when is_binary(Name) ->
 %% @end
 %% -----------------------------------------------------------------------------
 lookup_schema(Name) when is_binary(Name) ->
-    Q = named_query("query_schema.sql", [{id, Name}]),
+    Q = ?SELECT_SCHEMA([{id, Name}]),
     case simple_query(Q, [], ?QUERY_TIMEOUT) of
         {ok, []} ->
             false;
@@ -258,21 +262,20 @@ lookup_schema(Name) when is_binary(Name) ->
 %% is the Playground Tenant Key.
 %% @end
 %% -----------------------------------------------------------------------------
--spec create_schema(Name :: binary()) ->
-    {ok, row()} | error().
-create_schema(Name) when is_binary(Name) ->
-    create_schema(Name, <<"">>).
+-spec create_schema(SQL :: list(), Name :: binary()) -> {ok, row()} | error().
+create_schema(SQL, Name) when is_binary(Name) ->
+    create_schema(SQL, Name, <<"">>).
 
 
 %% -----------------------------------------------------------------------------
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec create_schema(Name :: binary(), Desc :: binary()) ->
+-spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary()) ->
     {ok, row()} | error().
-create_schema(Name, Desc)
+create_schema(SQL, Name, Desc)
     when is_binary(Name) andalso is_binary(Desc) ->
-    Q = named_query("create_schema.sql", [{id, Name}, {desc, Desc}]),
+    Q = pgdb_utils:subst(SQL, [{id, Name}, {desc, Desc}]),
     case simple_query(Q, [{on_error_abort, false}], ?QUERY_TIMEOUT) of
         {ok, _} ->
             {ok, {Name, Desc}};
@@ -324,8 +327,7 @@ drop_schema(ID) when is_binary(ID) ->
 %% @end
 %% -----------------------------------------------------------------------------
 list_schemas() ->
-    Q = named_query("query_schemas.sql", []),
-    simple_query(Q, [], ?QUERY_TIMEOUT).
+    simple_query(?SELECT_SCHEMAS, [], ?QUERY_TIMEOUT).
 
 
 
@@ -467,8 +469,7 @@ match(Table, Proj, Conditions) ->
 -spec match(
         Table :: list() | binary(), Proj :: list(), Conds :: [condition()],
         Opts :: options()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} |
-    error().
+    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
 match(Table, Proj, Conditions, Opts) ->
     C = maybe_get_connection(get_pool_name(Opts)),
     match(Table, Proj, Conditions, Opts, C).
@@ -482,8 +483,7 @@ match(Table, Proj, Conditions, Opts) ->
         Table :: list() | binary(), Proj :: list(),
         Conds :: [condition()], Opts :: options(),
         C :: connection()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} |
-    error().
+    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
 match(_Table, [], _Conditions, _Opts, _C) ->
     error({invalid_projection, []});
 
@@ -521,10 +521,9 @@ match(Table, Proj, Conditions, Opts0, C)
 %% in the form of $var with each with property of the same name in Args.
 %% @end
 %% -----------------------------------------------------------------------------
--spec named_query(string(), [proplists:property()]) -> string() | error().
-named_query(Name, Args) ->
-    PrivDir = code:priv_dir(pgdb),
-    FName = filename:join(PrivDir, Name),
+-spec named_query(FileName :: string(), [proplists:property()]) -> 
+    string() | error().
+named_query(FName, Args) ->
     {ok, File} = file:read_file(FName),
     Q = unicode:characters_to_list(File),
     pgdb_utils:subst(Q, Args).
@@ -534,9 +533,7 @@ named_query(Name, Args) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec transaction(
-        Fun :: fun(() -> any())) ->
-    any().
+-spec transaction(Fun :: fun(() -> any())) -> any().
 transaction(Fun) ->
     transaction(Fun, []).
 
@@ -545,12 +542,9 @@ transaction(Fun) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec transaction(
-        Fun :: fun(() -> any()),
-        Opts :: options()) ->
-    any().
+-spec transaction(Fun :: fun(() -> any()), Opts :: options()) -> any().
 transaction(Fun, Opts) ->
-    % By calling maybe_get_connection we support nesting transaction/2 calls. 
+    %% By calling maybe_get_connection we support nesting transaction/2 calls. 
     C = maybe_get_connection(get_pool_name(Opts)),
     transaction(Fun, Opts, C).
 
@@ -568,18 +562,18 @@ transaction(Fun, _Opts, C) ->
     ok = init_tx(C),
     try
         ok = maybe_begin_tx(C),
-        % Fun should use this modules query functions, which they will
-        % do a rollback in case of an error.
-        % If the option on_error_abort was set to true, then any error in 
-        % the query functions used within the function block will throw 
-        % an exception which we catch below.
+        %% Fun should use this modules query functions, which they will
+        %% do a rollback in case of an error.
+        %% If the option on_error_abort was set to true, then any error in 
+        %% the query functions used within the function block will throw 
+        %% an exception which we catch below.
         Result = Fun(),
         ok = maybe_commit_tx(C),
         Result
     catch
         throw:Reason ->
             lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
-            % Manual rollback
+            %% Manual rollback
             _ = maybe_rollback(true, C),
             maybe_throw(is_nested_tx(), Reason)
     after
@@ -602,18 +596,18 @@ transaction(Fun, _Opts, C) ->
 init_tx(C) ->
     case get(tx_connection) of
         undefined ->
-            % We are initiating a new transaction
+            %% We are initiating a new transaction
             undefined = put(tx_connection, C),
             increment_tx_count();
         C ->
-            % This is a nested call, we are joining an existing transaction
+            %% This is a nested call, we are joining an existing transaction
             increment_tx_count();
         Other ->
-            % We are in a transaction and we are trying to join it
-            % using a with a different connection!
-            % We return the Other connection to its pool.
-            % This should never happen now since we support nesting calls
-            % to transaction/2
+            %% We are in a transaction and we are trying to join it
+            %% using a with a different connection!
+            %% We return the Other connection to its pool.
+            %% This should never happen now since we support nesting calls
+            %% to transaction/2
             ok = return_connection(Other),
             error({existing_connection_in_use, C})
     end.
@@ -694,13 +688,13 @@ maybe_begin_tx(C) ->
 begin_tx({_, DBC} = C) ->
     case pgsql_connection:simple_query(<<"begin;">>, DBC) of
         {'begin', []} ->
-            % We do not call process_output because we will create a loop,
-            % as process_output will reject explicit transactions when there
-            % in already an initiated implicit transaction
+            %% We do not call process_output because we will create a loop,
+            %% as process_output will reject explicit transactions when there
+            %% in already an initiated implicit transaction
             ok;
         Res ->
-            % We failed at initiating a tx, we let process_output do its thing,
-            % certainly throwing an exception in this case
+            %% We failed at initiating a tx, we let process_output do its thing,
+            %% certainly throwing an exception in this case
             _ = process_output(Res, [{on_error_abort, true}], C),
             ok
     end.
@@ -728,13 +722,13 @@ maybe_commit_tx(C) ->
 commit_tx({_, DBC} = C) ->
     case pgsql_connection:simple_query(<<"commit;">>, DBC) of
         {commit, []} ->
-            % We do not call process_output because we might create a loop
-            % in future implementations. At the moment, we do not support
-            % nesting explicit transactions
+            %% We do not call process_output because we might create a loop
+            %% in future implementations. At the moment, we do not support
+            %% nesting explicit transactions
             ok;
         Res ->
-            % We failed at committing a tx, we let process_output do its thing,
-            % certainly throwing an exception in this case
+            %% We failed at committing a tx, we let process_output do its thing,
+            %% certainly throwing an exception in this case
             _ = process_output(Res, [{on_error_abort, true}], C),
             ok
     end.
@@ -761,7 +755,7 @@ maybe_terminate_tx(C) ->
 %% @end
 %% -----------------------------------------------------------------------------
 terminate_tx(C) ->
-    % We remove C from the process dictionary
+    %% We remove C from the process dictionary
     C = erase(tx_connection),
     ok.
 
@@ -783,19 +777,41 @@ maybe_rollback(false, _) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
-try_reconnect(Pool) ->
-    {ok, Pools} = application:get_env(episcina, pools),
-    case lists:keyfind(Pool, 1, Pools) of
-        {Pool, _} = Conf ->
-            case episcina:start_pool(Conf) of
+try_reconnect(PoolName) ->
+    {ok, Pools} = application:get_env(pgdb, pools),
+    case lists:keyfind(PoolName, 1, Pools) of
+        {PoolName, _} = Conf ->
+            case episcina:start_pool(format_pool(Conf)) of
                 {ok, _} ->
                     ok;
                 {error, Reason} ->
                     error(Reason)
             end;
         false ->
-            error({missing_pool_config, Pool})
+            error({missing_pool_config, PoolName})
     end.
+
+
+%% @private
+format_pool({PoolName, Opts}) ->
+    {PoolName, format_pool_opts(Opts)}.
+
+
+%% @private
+format_pool_opts(Opts) ->
+    format_pool_opts(Opts, []).
+
+format_pool_opts([{size, _} = H|T], Acc) ->
+    format_pool_opts(T, [H|Acc]);
+
+format_pool_opts([{timeout, _} = H|T], Acc) ->
+    format_pool_opts(T, [H|Acc]);
+
+format_pool_opts([{connection, Opts}|T], Acc) ->
+    format_pool_opts(T, [{connect_provider, {pgdb, open, [Opts]}} | Acc]);
+
+format_pool_opts([], Acc) ->
+    [{close_provider, {pgdb, close, []}} | Acc].
 
 
 %% -----------------------------------------------------------------------------
@@ -816,8 +832,10 @@ projections_to_sql(Ps) ->
 %% -----------------------------------------------------------------------------
 projections_to_sql([], Acc) ->
     lists:reverse(Acc);
+
 projections_to_sql([H | T], []) ->
     projections_to_sql(T, [H]);
+
 projections_to_sql([H | T], Acc) ->
     projections_to_sql(T, [H, "," | Acc]).
 
@@ -870,8 +888,10 @@ wrap(L) when is_list(L) ->
 %% -----------------------------------------------------------------------------
 add_expr(_, L, []) ->
     [L];
+
 add_expr('and', L, Q0) ->
     [Q0, <<" AND ">>, L];
+
 add_expr('or', L, Q0) ->
     [Q0, <<" OR ">>, L].
 
@@ -939,10 +959,10 @@ process_output({{alter, _What}, []}, _, _) ->
     {ok, 1};
 
 process_output({'begin', []}, Opts, C) ->
-    % This is the result of a user explicitly sending the "begin;" sql command
-    % We call "begin;" out of band in begin_tx/1 so we shouldn't loop here.
-    % If we are already in a tx we need to rollback 
-    % (the block already processed) and abort.
+    %% This is the result of a user explicitly sending the "begin;" sql command
+    %% We call "begin;" out of band in begin_tx/1 so we shouldn't loop here.
+    %% If we are already in a tx we need to rollback 
+    %% (the block already processed) and abort.
     case is_in_tx() of
         true ->
             _ = maybe_rollback(true, C),
@@ -953,16 +973,16 @@ process_output({'begin', []}, Opts, C) ->
     end;
 
 process_output({commit, []}, Opts, C) ->
-    % Cleanup
+    %% Cleanup
     case is_in_tx() of
         true ->
-            % This could be horrible. 
-            % The user sent an explicit commit in the middle of an implicit 
-            % transaction.
-            % We are not sure anything is wrong but when it dos, we won't be 
-            % able to rollback the changes because the user partially 
-            % committed them.
-            % For now we do not do anything smart and fail
+            %% This could be horrible. 
+            %% The user sent an explicit commit in the middle of an implicit 
+            %% transaction.
+            %% We are not sure anything is wrong but when it dos, we won't be 
+            %% able to rollback the changes because the user partially 
+            %% committed them.
+            %% For now we do not do anything smart and fail
             Desc = "Explicit transaction termination within implict transaction may have caused and inconsistent database state.",
             Reason = {inconsistent_state, Desc},
             lager:warning(Desc),
@@ -973,9 +993,9 @@ process_output({commit, []}, Opts, C) ->
     end;
 
 process_output({rollback, []}, Opts, _C) ->
-    % This is considered an error since not only the rollback command itself 
-    % might return {rollback, []} e.g. commit will return this when a rollback
-    % was performed before it
+    %% This is considered an error since not only the rollback command itself 
+    %% might return {rollback, []} e.g. commit will return this when a rollback
+    %% was performed before it
     maybe_throw(is_in_tx(), rollback, Opts);
 
 process_output({set, []}, _, _) ->
@@ -1015,12 +1035,12 @@ coalesce_output([], [], Rows, _, _, _, _) ->
     {ok, lists:append(Rows)};
 
 coalesce_output([], [R], _, _, InTx, Opts, C) ->
-    % We have one error
+    %% We have one error
     _ = maybe_rollback(InTx, C),
     maybe_throw(InTx, R, Opts);
 
 coalesce_output([], Rs, _, _, InTx, Opts, C) ->
-    % We have multiple errors
+    %% We have multiple errors
     _ = maybe_rollback(InTx, C),
     maybe_throw(InTx, {multiple, Rs}, Opts);
 
@@ -1121,8 +1141,8 @@ get_pool_name(Opts) ->
         {pool, Name} ->
             Name;
         false ->
-            % We default to the first pool
-            {ok, [{Name, _} | _T]} = application:get_env(episcina, pools),
+            %% We default to the first pool
+            {ok, [{Name, _} | _T]} = application:get_env(pgdb, pools),
             Name
     end.
 

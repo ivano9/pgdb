@@ -18,8 +18,29 @@
 %%
 %% =============================================================================
 
+
 -type condition()       ::  {condition_op(), db_field(), any()}.
 -type condition_op()    ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
 -type db_field()        ::  binary().
 -type error() 			:: 	{error, Reason :: any()}.
 -type row()         	::  pgsql_connection:row().
+
+
+-define(SELECT_SCHEMAS, 
+    "SELECT nsp.nspname, description "
+    "FROM pg_namespace nsp "  
+    "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid "  
+    "WHERE pg_get_userbyid(nspowner) = current_user "
+    "ORDER BY nspname"
+).
+
+-define(SELECT_SCHEMA(Args), 
+    pgdb_utils:subst(
+        "SELECT nsp.nspname, description" 
+        "FROM pg_namespace nsp" 
+        "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid"  
+        "WHERE pg_get_userbyid(nspowner) = current_user "
+        "AND nsp.nspname = '$id' "
+        "ORDER BY nspname", 
+        Args)
+).
