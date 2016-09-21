@@ -42,6 +42,16 @@
 -module(pgdb).
 -include("pgdb.hrl").
 
+-type condition()       ::  {condition_op(), db_field(), any()}.
+-type condition_op()    ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
+-type db_field()        ::  binary().
+-type error() 			:: 	{error, Reason :: any()}.
+-type row()         	::  pgsql_connection:row().
+
+-export_type([condition/0]).
+-export_type([error/0]).
+-export_type([row/0]).
+
 -export([abort/1]).
 -export([batch_query/2]).
 -export([batch_query/3]).

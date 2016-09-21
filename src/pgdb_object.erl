@@ -33,7 +33,6 @@
 %%   INSERT, but is not included in the UDPATE i.e. is immutable once set
 %% @end
 -module(pgdb_object).
--include("pgdb.hrl").
 
 -define(SCHEMA_TABLE(S, T), <<S/binary, $., T/binary>>).
 
@@ -61,69 +60,71 @@
 
 -callback object_spec() -> pb_object_spec:object_spec().
 
--callback new() -> row().
+-callback new() -> pgdb:row().
 
--callback from_map(map()) -> row().
+-callback from_map(map()) -> pgdb:row().
 
--callback to_map(row()) -> map().
+-callback to_map(pgdb:row()) -> map().
 
--callback id(Row :: row()) -> binary().
+-callback id(Row :: pgdb:row()) -> binary().
 
--callback member(Schema :: binary(), Row :: row()) -> boolean() | error().
+-callback member(
+    Schema :: binary(), Row :: pgdb:row()) -> boolean() | pgdb:error().
 
--callback fetch(Schema :: binary(), ID :: binary()) -> row() | error().
+-callback fetch(
+    Schema :: binary(), ID :: binary()) -> pgdb:row() | pgdb:error().
 
 -callback fetch(
     Schema :: binary(), ID :: binary(), Opts :: [proplists:property()]) ->
-    row() | error().
+    pgdb:row() | pgdb:error().
 
--callback lookup(Schema :: binary(), ID :: binary()) -> row() | false | error().
+-callback lookup(Schema :: binary(), ID :: binary()) -> pgdb:row() | false | pgdb:error().
 
 -callback lookup(
     Schema :: binary(), ID :: binary(), Opts :: [proplists:property()]) ->
-    row() | false | error().
+    pgdb:row() | false | pgdb:error().
 
--callback add(Schema :: binary(), Row :: row()) ->
-    {ok, NewRow :: row()} | error().
+-callback add(Schema :: binary(), Row :: pgdb:row()) ->
+    {ok, NewRow :: pgdb:row()} | pgdb:error().
 
--callback update(Schema :: binary(), Row :: row()) ->
-    {ok, NewRow :: row()} | error().
+-callback update(Schema :: binary(), Row :: pgdb:row()) ->
+    {ok, NewRow :: pgdb:row()} | pgdb:error().
 
--callback remove(Schema :: binary(), Row :: row()) ->
-    ok | error().
+-callback remove(Schema :: binary(), Row :: pgdb:row()) ->
+    ok | pgdb:error().
 
 -callback list(Schema :: binary()) ->
-    {ok, RS :: pgdb_result_set:result_set()} | error().
+    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
 
 -callback list(Schema :: binary(), Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | error().
+    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
 
 
--callback match(Schema :: binary(), Conds :: [condition()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | error().
+-callback match(Schema :: binary(), Conds :: [pgdb:condition()]) ->
+    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
 
 -callback match(
-    Schema :: binary(), Conds :: [condition()], Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | error().
+    Schema :: binary(), Conds :: [pgdb:condition()], Opts :: [proplists:property()]) ->
+    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
 
 
 %% ============================================================================
 %% UTILS IMPLEMENTATION
 %% ============================================================================
 
--spec new(Spec :: pb_object_spec:object_spec()) -> row().
+-spec new(Spec :: pb_object_spec:object_spec()) -> pgdb:row().
 new(Spec) ->
     Cols = pgdb_object_spec:column_names(Spec),
     L = [pgdb_object_spec:eval_column_default(Spec, C) || C <- Cols],
     list_to_tuple(L).
 
 
--spec id(Spec :: pb_object_spec:object_spec(), Row :: row()) -> binary().
+-spec id(Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) -> binary().
 id(Spec, Row) ->
     get_value(Spec, pgdb_object_spec:primary_key(Spec), Row).
 
 
--spec from_map(Spec :: pb_object_spec:object_spec(), Map :: map()) -> row().
+-spec from_map(Spec :: pb_object_spec:object_spec(), Map :: map()) -> pgdb:row().
 from_map(Spec, Map) ->
     Cols = pgdb_object_spec:column_names(Spec),
     L = [
@@ -137,7 +138,7 @@ from_map(Spec, Map) ->
     list_to_tuple(L).
 
 
--spec to_map(Spec :: pb_object_spec:object_spec(), Row :: row()) -> map().
+-spec to_map(Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) -> map().
 to_map(Spec, Row) ->
     Cols = pgdb_object_spec:column_names(Spec),
     L = [{C, element(pgdb_object_spec:column_index(Spec, C), Row)}
@@ -145,8 +146,8 @@ to_map(Spec, Row) ->
     maps:from_list(L).
 
 
--spec add(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: row()) ->
-    {ok, NewRow :: pgdb_object:row()} | error().
+-spec add(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) ->
+    {ok, NewRow :: pgdb:row()} | pgdb:error().
 add(Schema, Spec, Row) ->
     Mod = pgdb_object_spec:mod(Spec),
     Map = Mod:to_map(Row),
@@ -170,8 +171,8 @@ add(Schema, Spec, Row) ->
     end.
 
 
--spec update(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: row()) ->
-    {ok, NewRow :: row()} | error().
+-spec update(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) ->
+    {ok, NewRow :: pgdb:row()} | pgdb:error().
 update(Schema, Spec, Row) ->
     Table = pgdb_object_spec:table_name(Spec),
     PK = pgdb_object_spec:primary_key(Spec),
@@ -198,8 +199,8 @@ update(Schema, Spec, Row) ->
     end.
 
 
--spec remove(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: row()) ->
-    ok | error().
+-spec remove(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) ->
+    ok | pgdb:error().
 remove(Schema, Spec, Row) ->
     Table = pgdb_object_spec:table_name(Spec),
     Params = [id(Spec, Row)],
@@ -215,8 +216,8 @@ remove(Schema, Spec, Row) ->
     end.
 
 
--spec member(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: row()) ->
-    boolean() | error().
+-spec member(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) ->
+    boolean() | pgdb:error().
 member(Schema, Spec, Row) ->
     case lookup(Schema, Spec, id(Spec, Row), []) of
         {error, Reason} ->
@@ -230,7 +231,7 @@ member(Schema, Spec, Row) ->
 
 -spec fetch(Schema :: binary(), Spec :: pb_object_spec:object_spec(), UUID :: binary(),
         Opts :: [proplists:property()]) ->
-    row() | error().
+    pgdb:row() | pgdb:error().
 fetch(Schema, Spec, UUID, Opts) ->
     case lookup(Schema, Spec, UUID, Opts) of
         false ->
@@ -243,7 +244,7 @@ fetch(Schema, Spec, UUID, Opts) ->
 -spec lookup(
         Schema :: binary(), Spec :: pb_object_spec:object_spec(), UUID :: binary(),
         Opts :: [proplists:property()]) ->
-    row() | false | error().
+    pgdb:row() | false | pgdb:error().
 lookup(Schema, Spec, UUID, Opts) ->
     Table = pgdb_object_spec:table_name(Spec),
     Cols = pgdb_object_spec:column_names(Spec),
@@ -265,16 +266,16 @@ lookup(Schema, Spec, UUID, Opts) ->
 
 -spec list(
         Schema :: binary(), Spec :: pb_object_spec:object_spec(), Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | error().
+    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
 list(Schema, Spec, Opts) ->
     match(Schema, Spec, [], Opts).
 
 
 -spec match(
         Schema :: binary(), Spec :: pb_object_spec:object_spec(),
-        Conds :: [condition()], Opts :: [proplists:property()]) ->
+        Conds :: [pgdb:condition()], Opts :: [proplists:property()]) ->
     {ok, RS :: pgdb_result_set:result_set()} |
-    error().
+    pgdb:error().
 match(Schema, Spec, Conditions, Opts) ->
     Table = pgdb_object_spec:table_name(Spec),
     Cols = pgdb_object_spec:column_names(Spec),
