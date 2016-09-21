@@ -267,9 +267,6 @@ lookup_schema(Name) when is_binary(Name) ->
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% Creates a new schema with all its underlying objects.
-%% In pgdb every tenant has its own schema, where the schema name
-%% is the Playground Tenant Key.
 %% @end
 %% -----------------------------------------------------------------------------
 -spec create_schema(SQL :: list(), Name :: binary()) -> {ok, row()} | error().
@@ -279,6 +276,9 @@ create_schema(SQL, Name) when is_binary(Name) ->
 
 %% -----------------------------------------------------------------------------
 %% @doc
+%% Creates a new schema with all its underlying objects.
+%% The schema sql should use the sql variables `id` and `desc`
+%% which will be substituted by Name and Desc arguments
 %% @end
 %% -----------------------------------------------------------------------------
 -spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary()) ->
