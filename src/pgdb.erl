@@ -24,7 +24,7 @@
 %% @doc
 %% This module provides and abstraction on top of the underlying 
 %% Postgresql db driver and connection pooling mechanism.
-%% It also provides the functionality to manage tenant schemas and run 
+%% It also provides the functionality to manage schemas and run 
 %% SQL queries.
 %% In addition to supporting all underlying db driver query types, this module
 %% also provides the match query type.
