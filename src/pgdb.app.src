@@ -3,8 +3,13 @@
     {vsn, "0.1.0"},
     {registered, []},
     {applications,
-    [kernel,
-    stdlib
+    [
+        kernel,
+        stdlib,
+        lager,
+        pgsql,
+        episcina
+
     ]},
     {env,[]},
     {modules, []},
