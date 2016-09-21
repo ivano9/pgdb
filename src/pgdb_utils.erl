@@ -4,8 +4,6 @@
 -export([var/1]).
 -export([join_iolist/2]).
 -export([subst/2]).
--export([uuid/0]).
--export([date_parser/0]).
 -export([maybe_throw/1]).
 
 
@@ -52,32 +50,3 @@ subst(Fmt, [{K, V} | T]) ->
     Fmt1 = re:replace(Fmt, "\\$" ++ atom_to_list(K), [V], [global, {return, list}]),
     subst(Fmt1, T).
 
-
-uuid() ->
-    list_to_bitstring(uuid:to_string(uuid:uuid4())).
-
-
-%% A custom qdate parser for the ISO8601 dates where timezone == Z.
-date_parser() ->
-    fun
-        (RawDate) when length(RawDate) == 20 ->
-            try
-                re:run(RawDate, "^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})Z", [{capture, all_but_first, list}])
-            of
-                nomatch -> undefined;
-                {match, [Y, M, D, H, I, S]} ->
-                    Date = {list_to_integer(Y), list_to_integer(M), list_to_integer(D)},
-                    Time = {list_to_integer(H), list_to_integer(I), list_to_integer(S)},
-                    case calendar:valid_date(Date) of
-                        true ->
-                            {{Date, Time}, "UTC"};
-                        false ->
-                            undefined
-                    end
-            catch
-                _:_ ->
-                    undefined
-            end;
-        (_) ->
-            undefined
-    end.
