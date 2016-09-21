@@ -58,8 +58,6 @@
 %% ============================================================================
 
 
--callback object_spec() -> pb_object_spec:object_spec().
-
 -callback new() -> pgdb:row().
 
 -callback from_map(map()) -> pgdb:row().
