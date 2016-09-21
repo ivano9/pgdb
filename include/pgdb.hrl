@@ -21,20 +21,20 @@
 
 
 -define(SELECT_SCHEMAS, 
-    "SELECT nsp.nspname, description "
-    "FROM pg_namespace nsp "  
-    "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid "  
-    "WHERE pg_get_userbyid(nspowner) = current_user "
+    "SELECT nsp.nspname, description \n"
+    "FROM pg_namespace nsp \n"  
+    "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"  
+    "WHERE pg_get_userbyid(nspowner) = current_user \n"
     "ORDER BY nspname"
 ).
 
 -define(SELECT_SCHEMA(Args), 
     pgdb_utils:subst(
-        "SELECT nsp.nspname, description " 
-        "FROM pg_namespace nsp " 
-        "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid "  
-        "WHERE pg_get_userbyid(nspowner) = current_user "
-        "AND nsp.nspname = '$id' "
+        "SELECT nsp.nspname, description \n" 
+        "FROM pg_namespace nsp \n" 
+        "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"  
+        "WHERE pg_get_userbyid(nspowner) = current_user \n"
+        "AND nsp.nspname = '$id' \n"
         "ORDER BY nspname", 
         Args)
 ).
