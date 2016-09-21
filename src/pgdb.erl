@@ -1148,7 +1148,7 @@ error_message(L) ->
 %% -----------------------------------------------------------------------------
 get_pool_name(Opts) ->
     case lists:keyfind(pool, 1, Opts) of
-        {Name, _} ->
+        {pool, Name} ->
             Name;
         false ->
             %% We default to the first pool
