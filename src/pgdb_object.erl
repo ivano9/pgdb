@@ -53,58 +53,6 @@
 -export([to_map/2]).
 -export([update/3]).
 
-%% ============================================================================
-%% CALLBACK FUNCTIONS
-%% ============================================================================
-
-
--callback new() -> pgdb:row().
-
--callback from_map(map()) -> pgdb:row().
-
--callback to_map(pgdb:row()) -> map().
-
--callback id(Row :: pgdb:row()) -> binary().
-
--callback member(
-    Schema :: binary(), Row :: pgdb:row()) -> boolean() | pgdb:error().
-
--callback fetch(
-    Schema :: binary(), ID :: binary()) -> pgdb:row() | pgdb:error().
-
--callback fetch(
-    Schema :: binary(), ID :: binary(), Opts :: [proplists:property()]) ->
-    pgdb:row() | pgdb:error().
-
--callback lookup(Schema :: binary(), ID :: binary()) -> pgdb:row() | false | pgdb:error().
-
--callback lookup(
-    Schema :: binary(), ID :: binary(), Opts :: [proplists:property()]) ->
-    pgdb:row() | false | pgdb:error().
-
--callback add(Schema :: binary(), Row :: pgdb:row()) ->
-    {ok, NewRow :: pgdb:row()} | pgdb:error().
-
--callback update(Schema :: binary(), Row :: pgdb:row()) ->
-    {ok, NewRow :: pgdb:row()} | pgdb:error().
-
--callback remove(Schema :: binary(), Row :: pgdb:row()) ->
-    ok | pgdb:error().
-
--callback list(Schema :: binary()) ->
-    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
-
--callback list(Schema :: binary(), Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
-
-
--callback match(Schema :: binary(), Conds :: [pgdb:condition()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
-
--callback match(
-    Schema :: binary(), Conds :: [pgdb:condition()], Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:result_set()} | pgdb:error().
-
 
 %% ============================================================================
 %% UTILS IMPLEMENTATION
@@ -147,8 +95,7 @@ to_map(Spec, Row) ->
 -spec add(Schema :: binary(), Spec :: pb_object_spec:object_spec(), Row :: pgdb:row()) ->
     {ok, NewRow :: pgdb:row()} | pgdb:error().
 add(Schema, Spec, Row) ->
-    Mod = pgdb_object_spec:mod(Spec),
-    Map = Mod:to_map(Row),
+    Map = to_map(Spec, Row),
     AllCols = pgdb_object_spec:column_names(Spec),
     {Cols, Params} = collect_cols_and_vals(Map, AllCols),
     Table = pgdb_object_spec:table_name(Spec),

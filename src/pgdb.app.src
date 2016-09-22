@@ -9,7 +9,6 @@
         lager,
         pgsql,
         episcina
-
     ]},
     {env,[]},
     {modules, []},
