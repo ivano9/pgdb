@@ -1108,7 +1108,7 @@ maybe_throw(true, Reason, Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 format_reason({pgsql_error, L}) ->
-    {pgdb_pg_error:name(error_code(L)), error_message(L)};
+    {pgdb_error:name(error_code(L)), error_message(L)};
 format_reason(Reason) ->
     Reason.
 
