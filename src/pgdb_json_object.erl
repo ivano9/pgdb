@@ -220,19 +220,12 @@ match(Schema, Table, Pattern) ->
 %% -----------------------------------------------------------------------------
 -spec match(binary(), binary(), binary(), list()) -> [object()] | pgdb:error().
 
-match(Schema, Table, Pattern, Opts0) 
-when is_binary(Schema), is_binary(Table), is_binary(Pattern), is_list(Opts0) ->
-    Where = case Pattern of
-        <<"{}">> ->
-            $;;
-        <<>> ->
-            $;;
-        _ ->
-            <<" where value @> ", $', Pattern/binary, $', $;>>
-    end,
+match(Schema, Table, Patterns, Opts0) 
+when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     Q = [
-        <<"select key, (value::text)::jsonb from ">>, ?SCHEMA_TABLE(Schema, Table),
-        Where
+        <<"select key, (value::text)::jsonb from ">>, 
+        ?SCHEMA_TABLE(Schema, Table),
+        match_where_clause(Patterns)
     ],
     {Q1, Opts1} = case lists:keytake(lock, 1, Opts0) of
         false ->
@@ -244,7 +237,40 @@ when is_binary(Schema), is_binary(Table), is_binary(Pattern), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1).
+    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1);
+
+match(Schema, Table, Pattern, Opts) 
+when is_binary(Schema), is_binary(Table), is_list(Opts) ->
+    match(Schema, Table, [Pattern], Opts).
+
+
+%% @private
+match_where_clause(Patterns) ->
+    match_where_clause(Patterns, []).
+
+%% @private
+match_where_clause([<<>>|T], Acc) ->
+    match_where_clause(T, Acc);
+
+match_where_clause([<<"{}">>|T], Acc) ->
+    match_where_clause(T, Acc);
+
+match_where_clause([Bin|T], Acc) when is_binary(Bin) ->
+    Clause = <<" value @> ", $', Bin/binary, $'>>,
+    match_where_clause(T, [Clause|Acc]);
+
+match_where_clause([Pat|T], Acc) ->
+    Bin = jsx:encode(Pat),
+    Clause = <<" value @> ", $', Bin/binary, $'>>,
+    match_where_clause(T, [Clause|Acc]);
+
+match_where_clause([], []) ->
+    <<>>;
+
+match_where_clause([], L) ->
+    Clauses = pgdb_utils:join_iolist(L, <<" OR ">>),
+    <<" where ", Clauses/binary>>.
+
 
 
 %% -----------------------------------------------------------------------------
