@@ -35,6 +35,7 @@
 -export_type([value/0]).
 -export_type([object/0]).
 
+-export([add/3]).
 -export([add/4]).
 -export([fetch/3]).
 -export([fetch/4]).
@@ -44,7 +45,18 @@
 -export([match/3]).
 -export([match/4]).
 -export([remove/3]).
-% -export([update/4]).
+-export([update/3]).
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec add(binary(), binary(), object()) -> {ok, object()} | pgdb:error().
+
+add(Schema, Table, {Key, Value}) ->
+    add(Schema, Table, Key, Value).
+
 
 
 %% -----------------------------------------------------------------------------
@@ -53,7 +65,8 @@
 %% -----------------------------------------------------------------------------
 -spec add(binary(), binary(), key(), value()) -> {ok, object()} | pgdb:error().
 
-add(Schema, Table, Key, Value) when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
+add(Schema, Table, Key, Value) 
+when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     Q = [
         <<"insert into ">>, ?SCHEMA_TABLE(Schema, Table), 
         <<"(key, value) values ($1, ($2::text)::jsonb);">>
@@ -61,6 +74,25 @@ add(Schema, Table, Key, Value) when is_binary(Schema), is_binary(Table), is_bina
     case pgdb:extended_query(Q, [Key, Value]) of
        {ok, _} -> 
            {Key, Value};
+       {error, _} = Error ->
+           Error
+    end.
+
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec update(binary(), binary(), object()) -> ok | pgdb:error().
+update(Schema, Table, {Key, Value})
+when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
+    Q = [
+        <<"update ">>, ?SCHEMA_TABLE(Schema, Table), 
+        <<" set value = ($2::text)::jsonb where key = $1;">>],
+    case pgdb:extended_query(Q, [Key, Value]) of
+       {ok, _} -> 
+           ok;
        {error, _} = Error ->
            Error
     end.
