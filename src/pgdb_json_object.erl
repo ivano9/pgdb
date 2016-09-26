@@ -154,8 +154,8 @@ lookup(Schema, Table, Key, Opts) ->
     case pgdb:simple_query(Q, Opts) of
         {ok, []} ->
             false;
-        {ok, [Row]} ->
-            maybe_format_rows([Row]);
+        {ok, [_Row]} = OK ->
+            maybe_result_set(OK);
         {ok, L} ->
             {error, {multiple_rows, L}};
         {error, _} = Error ->
@@ -224,7 +224,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Pattern), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    maybe_format_rows(pgdb:simple_query(lists:flatten(Q1), Opts1)).
+    maybe_result_set(pgdb:simple_query(lists:flatten(Q1), Opts1)).
 
 
 %% -----------------------------------------------------------------------------
@@ -252,11 +252,10 @@ remove(Schema, Table, Key) ->
 
 
 
-maybe_format_rows({error, _} = Error) ->
+maybe_result_set({error, _} = Error) ->
     Error;
 
-maybe_format_rows({ok, Rows}) ->
-    maybe_format_rows(Rows);
-
-maybe_format_rows(Rows) ->
-    [{Key, Value} || {Key, {jsonb, Value}} <- Rows].
+maybe_result_set({ok, Rows}) ->
+    Head = [?KEY, ?VALUE],
+    Unwrapped = [{Key, Value} || {Key, {jsonb, Value}} <- Rows],
+    {ok, pgdb_result_set:new(Head, Unwrapped)}.
