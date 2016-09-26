@@ -224,8 +224,7 @@ match(Schema, Table, Patterns, Opts0)
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     Q = [
         <<"select key, (value::text)::jsonb from ">>, 
-        ?SCHEMA_TABLE(Schema, Table),
-        match_where_clause(Patterns)
+        ?SCHEMA_TABLE(Schema, Table) | match_where_clause(Patterns)
     ],
     {Q1, Opts1} = case lists:keytake(lock, 1, Opts0) of
         false ->
@@ -268,8 +267,8 @@ match_where_clause([], []) ->
     <<>>;
 
 match_where_clause([], L) ->
-    Clauses = pgdb_utils:join_iolist(L, <<" OR ">>),
-    <<" where ", Clauses/binary>>.
+    Clauses = pgdb_utils:join_iolist(L, <<" OR">>),
+    [<<" where ">> | Clauses].
 
 
 
