@@ -40,6 +40,7 @@
 -export([fetch/3]).
 -export([fetch/4]).
 -export([list/2]).
+-export([list/3]).
 -export([lookup/3]).
 -export([lookup/4]).
 -export([match/3]).
@@ -169,7 +170,17 @@ lookup(Schema, Table, Key, Opts) ->
 -spec list(binary(), binary()) -> [object()].
 
 list(Schema, Table) ->
-    match(Schema, Table, <<>>).
+    list(Schema, Table, []).
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec list(binary(), binary(), list()) -> [object()].
+
+list(Schema, Table, Opts) ->
+    match(Schema, Table, <<>>, Opts).
 
 
 
