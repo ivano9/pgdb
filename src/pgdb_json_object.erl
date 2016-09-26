@@ -156,7 +156,7 @@ lookup(Schema, Table, Key, Opts) ->
         {ok, []} ->
             false;
         {ok, [{Key, {jsonb, Value}}]} ->
-            {Key, Value};
+            {Key, maybe_decode(decode_json(Opts), Value)};
         {ok, L} ->
             {error, {multiple_rows, L}};
         {error, _} = Error ->
@@ -225,7 +225,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Pattern), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1)).
+    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1).
 
 
 %% -----------------------------------------------------------------------------
@@ -253,8 +253,30 @@ remove(Schema, Table, Key) ->
 
 
 
-maybe_unwrap({error, _} = Error) ->
+maybe_unwrap({error, _} = Error, _) ->
     Error;
 
-maybe_unwrap({ok, Rows}) ->
-    [{Key, Value} || {Key, {jsonb, Value}} <- Rows].
+maybe_unwrap({ok, Rows}, Opts) ->
+    Decode = decode_json(Opts),
+    [{Key, maybe_decode(Decode, Value)} || {Key, {jsonb, Value}} <- Rows].
+
+
+%% @private
+maybe_decode(false, Bin) ->
+    Bin;
+maybe_decode({true, Opts}, Bin) ->
+    jsx:decode(Bin, Opts).
+
+
+
+decode_json(Opts) ->
+    case lists:keyfind(decode_json, 1, Opts) of
+        {decode_json, false} ->
+            false;
+        {decode_json, true} ->
+            {true, [return_maps, {labels, existing_atom}]};
+        {decode_json, PList} ->
+            {true, PList};
+        false ->
+            {true, [return_maps, {labels, existing_atom}]}
+    end.
