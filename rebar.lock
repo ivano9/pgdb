@@ -1,6 +1,7 @@
 [{<<"episcina">>,{pkg,<<"episcina">>,<<"1.1.0">>},0},
  {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.8">>},1},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.3.1">>},1},
+ {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.0">>},0},
  {<<"lager">>,{pkg,<<"lager">>,<<"3.2.1">>},0},
  {<<"pgsql">>,
   {git,"git@github.com:semiocast/pgsql.git",

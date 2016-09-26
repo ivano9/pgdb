@@ -501,9 +501,9 @@ match(Table, Proj, Conditions, Opts0, C)
     when (is_list(Table) andalso Table /= [])
     orelse (is_binary(Table) andalso Table /= <<>>) ->
     Where = case length(Conditions) > 0 of
-                true -> <<" where ">>;
-                false -> <<>>
-            end,
+        true -> <<" where ">>;
+        false -> <<>>
+    end,
     Q0 = [
         <<"select ">>,
         projections_to_sql(Proj),
@@ -513,15 +513,15 @@ match(Table, Proj, Conditions, Opts0, C)
     ],
     {Q1, Params} = conditions_to_sql(Conditions, Q0),
     {Q2, Opts1} = case lists:keytake(lock, 1, Opts0) of
-                      false ->
-                          {Q1, Opts0};
-                      {value, {lock, exclusive}, NewOpts} ->
-                          NewQ = lists:append(Q1, [<<" for update">>]),
-                          {NewQ, NewOpts};
-                      {value, {lock, shared}, NewOpts} ->
-                          NewQ = lists:append(Q1, [<<" for share">>]),
-                          {NewQ, NewOpts}
-                  end,
+        false ->
+            {Q1, Opts0};
+        {value, {lock, exclusive}, NewOpts} ->
+            NewQ = lists:append(Q1, [<<" for update">>]),
+            {NewQ, NewOpts};
+        {value, {lock, shared}, NewOpts} ->
+            NewQ = lists:append(Q1, [<<" for share">>]),
+            {NewQ, NewOpts}
+    end,
     extended_query(lists:flatten(Q2), Params, Opts1, ?QUERY_TIMEOUT, C).
 
 
@@ -867,9 +867,6 @@ conditions_to_sql(Cs, Q0) ->
 %% -----------------------------------------------------------------------------
 %% TODO tidy up this function...by using pgdb_utils:join_iolist to generate
 %% the conjunction
-conditions_to_sql(_Op, [], Q, N, Params) ->
-    {Q, lists:flatten(Params), N};
-
 conditions_to_sql(Op, [{is_null, Field} | T], Q0, N, Params) ->
     Q1 = add_expr(Op, [Field, <<" IS NULL">>], Q0),
     conditions_to_sql(Op, T, Q1, N, Params);
@@ -885,8 +882,13 @@ conditions_to_sql(Op, [{'or', L} | T], Q0, N0, Params0) when is_list(L) ->
 
 conditions_to_sql(Op, [{IOp, Field, Value} | T], Q0, N, Params) ->
     Q1 = add_expr(Op, [Field, atom_to_list(IOp), pgdb_utils:var(N)], Q0),
-    conditions_to_sql(Op, T, Q1, N + 1, [Params, Value]).
+    conditions_to_sql(Op, T, Q1, N + 1, [Params, Value]);
 
+conditions_to_sql(_Op, [], Q, N, Params) ->
+    {Q, lists:flatten(Params), N}.
+
+
+%% @private
 wrap(L) when is_list(L) ->
     [$(, L, $)].
 
