@@ -123,7 +123,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 -spec fetch(
     Schema :: binary(), 
     Table :: binary(), 
-    Key :: key()) -> object() | pgdb:error().
+    Key :: key()) -> object() | no_return().
 fetch(Schema, Table, Key) ->
     fetch(Schema, Table, Key, []).
 
@@ -136,13 +136,15 @@ fetch(Schema, Table, Key) ->
     Schema :: binary(), 
     Table :: binary(), 
     Key :: key(),
-    Opts :: [proplists:property()]) -> object() | pgdb:error().
+    Opts :: [proplists:property()]) -> object() | no_return().
 fetch(Schema, Table, Key, Opts) ->
     case lookup(Schema, Table, Key, Opts) of
         false ->
             error({not_found, Key});
-        Other ->
-            Other
+        {error, Reason} ->
+            error(Reason);
+        Object ->
+            Object
     end.
 
 
