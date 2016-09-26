@@ -134,7 +134,7 @@ fetch(Schema, Table, Key, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec lookup(binary(), binary(), binary()) -> object().
+-spec lookup(binary(), binary(), binary()) -> object() | false | pgdb:error().
 
 lookup(Schema, Table, Key) ->
     lookup(Schema, Table, Key, []).
@@ -144,7 +144,8 @@ lookup(Schema, Table, Key) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec lookup(binary(), binary(), key(), [proplists:property()]) -> object().
+-spec lookup(binary(), binary(), key(), [proplists:property()]) -> 
+    object() | false | pgdb:error().
 
 lookup(Schema, Table, Key, Opts) ->
     Q = [
@@ -154,8 +155,8 @@ lookup(Schema, Table, Key, Opts) ->
     case pgdb:simple_query(Q, Opts) of
         {ok, []} ->
             false;
-        {ok, [_Row]} = OK ->
-            maybe_result_set(OK);
+        {ok, [{Key, {jsonb, Value}}]} ->
+            {Key, Value};
         {ok, L} ->
             {error, {multiple_rows, L}};
         {error, _} = Error ->
@@ -167,7 +168,7 @@ lookup(Schema, Table, Key, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec list(binary(), binary()) -> [object()].
+-spec list(binary(), binary()) -> [object()] | pgdb:error().
 
 list(Schema, Table) ->
     list(Schema, Table, []).
@@ -177,7 +178,7 @@ list(Schema, Table) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec list(binary(), binary(), list()) -> [object()].
+-spec list(binary(), binary(), list()) -> [object()] | pgdb:error().
 
 list(Schema, Table, Opts) ->
     match(Schema, Table, <<>>, Opts).
@@ -224,7 +225,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Pattern), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    maybe_result_set(pgdb:simple_query(lists:flatten(Q1), Opts1)).
+    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1)).
 
 
 %% -----------------------------------------------------------------------------
@@ -252,10 +253,8 @@ remove(Schema, Table, Key) ->
 
 
 
-maybe_result_set({error, _} = Error) ->
+maybe_unwrap({error, _} = Error) ->
     Error;
 
-maybe_result_set({ok, Rows}) ->
-    Head = [?KEY, ?VALUE],
-    Unwrapped = [{Key, Value} || {Key, {jsonb, Value}} <- Rows],
-    {ok, pgdb_result_set:new(Head, Unwrapped)}.
+maybe_unwrap({ok, Rows}) ->
+    [{Key, Value} || {Key, {jsonb, Value}} <- Rows].
