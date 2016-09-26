@@ -47,6 +47,7 @@
 -export([match/4]).
 -export([remove/3]).
 -export([update/3]).
+-export([update/4]).
 
 
 %% -----------------------------------------------------------------------------
@@ -64,7 +65,7 @@ add(Schema, Table, {Key, Value}) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec add(binary(), binary(), key(), value()) -> {ok, object()} | pgdb:error().
+-spec add(binary(), binary(), key(), value() | any()) -> ok | pgdb:error().
 
 add(Schema, Table, Key, Value) 
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
@@ -74,10 +75,14 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     ],
     case pgdb:extended_query(Q, [Key, Value]) of
        {ok, _} -> 
-           {Key, Value};
+           ok;
        {error, _} = Error ->
            Error
-    end.
+    end;
+
+add(Schema, Table, Key, Value) 
+when is_binary(Schema), is_binary(Table), is_binary(Key) ->
+    add(Schema, Table, Key, jsx:encode(Value)).
 
 
 
@@ -86,7 +91,15 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec update(binary(), binary(), object()) -> ok | pgdb:error().
-update(Schema, Table, {Key, Value})
+update(Schema, Table, {Key, Value}) ->
+    update(Schema, Table, Key, Value).
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec update(binary(), binary(), key(), any()) -> ok | pgdb:error().
+update(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     Q = [
         <<"update ">>, ?SCHEMA_TABLE(Schema, Table), 
@@ -96,7 +109,11 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
            ok;
        {error, _} = Error ->
            Error
-    end.
+    end;
+
+update(Schema, Table, Key, Value)
+when is_binary(Schema), is_binary(Table), is_binary(Key) ->
+    update(Schema, Table, Key, jsx:encode(Value)).
 
 
 %% -----------------------------------------------------------------------------
