@@ -264,7 +264,7 @@ match_where_clause([Pat|T], Acc) ->
     match_where_clause(T, [Clause|Acc]);
 
 match_where_clause([], []) ->
-    <<>>;
+    [<<>>];
 
 match_where_clause([], L) ->
     Clauses = pgdb_utils:join_iolist(L, <<" OR">>),
