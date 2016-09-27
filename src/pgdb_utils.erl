@@ -3,6 +3,7 @@
 -export([tuple_fold/3]).
 -export([var/1]).
 -export([join_iolist/2]).
+-export([to_json_iolist/1]).
 -export([subst/2]).
 -export([maybe_throw/1]).
 
@@ -43,6 +44,11 @@ join_iolist([H | T], Str, []) ->
     join_iolist(T, Str, [H]);
 join_iolist([H | T], Str, Acc) ->
     join_iolist(T, Str, [H, Str | Acc]).
+
+
+to_json_iolist(L) ->
+    lists:append([ [<<"[">>], join_iolist(L, <<",">>), [<<"]">>] ]).
+
 
 
 subst(Fmt, []) -> lists:flatten(Fmt);
