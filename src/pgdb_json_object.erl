@@ -286,9 +286,9 @@ maybe_unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
     L = [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows],
     case Decode of 
-        {true, _} ->
-            pgdb_utils:to_json_iolist(L);
         false ->
+            pgdb_utils:to_json_iolist(L);
+        _ ->
             L
     end.
 
