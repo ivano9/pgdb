@@ -284,8 +284,13 @@ maybe_unwrap({error, _} = Error, _) ->
 
 maybe_unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
-    maybe_json_iolist(
-        Decode, [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows]).
+    L = [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows],
+    case Decode of 
+        {true, _} ->
+            pgdb_utils:to_json_iolist(L);
+        false ->
+            L
+    end.
 
 
 %% @private
@@ -294,13 +299,7 @@ maybe_decode(false, Bin) ->
 maybe_decode({true, Opts}, Bin) ->
     jsx:decode(Bin, Opts).
 
-
-%% @private
-maybe_json_iolist(false, L) ->
-    L;
-
-maybe_json_iolist(true, L) ->
-    pgdb_utils:to_json_iolist(L).
+    
 
 
 %% @private
