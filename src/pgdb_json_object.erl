@@ -27,15 +27,12 @@
 -define(VALUE, <<"value">>).
 -define(SCHEMA_TABLE(S, T), <<S/binary, $., T/binary>>).
 
--type key()         ::  binary().
--type value()       ::  binary().
--type object()      ::  {key(), value()}.
+-type key()             ::  binary().
+-type value()           ::  binary() | map() | proplist:proplist().
 
 -export_type([key/0]).
 -export_type([value/0]).
--export_type([object/0]).
 
--export([add/3]).
 -export([add/4]).
 -export([fetch/3]).
 -export([fetch/4]).
@@ -46,18 +43,7 @@
 -export([match/3]).
 -export([match/4]).
 -export([remove/3]).
--export([update/3]).
 -export([update/4]).
-
-
-%% -----------------------------------------------------------------------------
-%% @doc
-%% @end
-%% -----------------------------------------------------------------------------
--spec add(binary(), binary(), object()) -> {ok, object()} | pgdb:error().
-
-add(Schema, Table, {Key, Value}) ->
-    add(Schema, Table, Key, Value).
 
 
 
@@ -90,14 +76,6 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec update(binary(), binary(), object()) -> ok | pgdb:error().
-update(Schema, Table, {Key, Value}) ->
-    update(Schema, Table, Key, Value).
-
-%% -----------------------------------------------------------------------------
-%% @doc
-%% @end
-%% -----------------------------------------------------------------------------
 -spec update(binary(), binary(), key(), any()) -> ok | pgdb:error().
 update(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
@@ -123,7 +101,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 -spec fetch(
     Schema :: binary(), 
     Table :: binary(), 
-    Key :: key()) -> object() | no_return().
+    Key :: key()) -> value() | no_return().
 fetch(Schema, Table, Key) ->
     fetch(Schema, Table, Key, []).
 
@@ -136,15 +114,15 @@ fetch(Schema, Table, Key) ->
     Schema :: binary(), 
     Table :: binary(), 
     Key :: key(),
-    Opts :: [proplists:property()]) -> object() | no_return().
+    Opts :: [proplists:property()]) -> value() | no_return().
 fetch(Schema, Table, Key, Opts) ->
     case lookup(Schema, Table, Key, Opts) of
         false ->
             error({not_found, Key});
         {error, Reason} ->
             error(Reason);
-        Object ->
-            Object
+        Value ->
+            Value
     end.
 
 
@@ -153,7 +131,7 @@ fetch(Schema, Table, Key, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec lookup(binary(), binary(), binary()) -> object() | false | pgdb:error().
+-spec lookup(binary(), binary(), binary()) -> value() | false | pgdb:error().
 
 lookup(Schema, Table, Key) ->
     lookup(Schema, Table, Key, []).
@@ -164,7 +142,7 @@ lookup(Schema, Table, Key) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec lookup(binary(), binary(), key(), [proplists:property()]) -> 
-    object() | false | pgdb:error().
+    value() | false | pgdb:error().
 
 lookup(Schema, Table, Key, Opts) ->
     Q = [
@@ -174,8 +152,8 @@ lookup(Schema, Table, Key, Opts) ->
     case pgdb:simple_query(Q, Opts) of
         {ok, []} ->
             false;
-        {ok, [{Key, {jsonb, Value}}]} ->
-            {Key, maybe_decode(decode_json(Opts), Value)};
+        {ok, [{_, {jsonb, Value}}]} ->
+            maybe_decode(decode_json(Opts), Value);
         {ok, L} ->
             {error, {multiple_rows, L}};
         {error, _} = Error ->
@@ -187,7 +165,8 @@ lookup(Schema, Table, Key, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec list(binary(), binary()) -> [object()] | pgdb:error().
+-spec list(binary(), binary()) -> 
+    [map() | proplists:proplists()] | iolist() | pgdb:error().
 
 list(Schema, Table) ->
     list(Schema, Table, []).
@@ -197,7 +176,8 @@ list(Schema, Table) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec list(binary(), binary(), list()) -> [object()] | pgdb:error().
+-spec list(binary(), binary(), list()) ->
+    [map() | proplists:proplists()] | iolist() | pgdb:error().
 
 list(Schema, Table, Opts) ->
     match(Schema, Table, <<>>, Opts).
@@ -208,7 +188,8 @@ list(Schema, Table, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec match(binary(), binary(), binary()) -> [object()] | pgdb:error().
+-spec match(binary(), binary(), binary()) ->
+    [map() | proplists:proplists()] | iolist() | pgdb:error().
 
 match(Schema, Table, Pattern) ->
     match(Schema, Table, Pattern, []).
@@ -218,7 +199,8 @@ match(Schema, Table, Pattern) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec match(binary(), binary(), binary(), list()) -> [object()] | pgdb:error().
+-spec match(binary(), binary(), binary(), list()) ->
+    [map() | proplists:proplists()] | iolist() | pgdb:error().
 
 match(Schema, Table, Patterns, Opts0) 
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
@@ -296,13 +278,14 @@ remove(Schema, Table, Key) ->
 %% =============================================================================
 
 
-
+%% @private
 maybe_unwrap({error, _} = Error, _) ->
     Error;
 
 maybe_unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
-    [{Key, maybe_decode(Decode, Value)} || {Key, {jsonb, Value}} <- Rows].
+    maybe_json_iolist(
+        Decode, [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows]).
 
 
 %% @private
@@ -312,7 +295,15 @@ maybe_decode({true, Opts}, Bin) ->
     jsx:decode(Bin, Opts).
 
 
+%% @private
+maybe_json_iolist(false, L) ->
+    L;
 
+maybe_json_iolist(true, L) ->
+    pgdb_utils:to_json_iolist(L).
+
+
+%% @private
 decode_json(Opts) ->
     case lists:keyfind(decode_json, 1, Opts) of
         {decode_json, false} ->
