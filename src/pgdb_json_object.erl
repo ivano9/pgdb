@@ -51,7 +51,7 @@
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec add(binary(), binary(), key(), value() | any()) -> ok | pgdb:error().
+-spec add(binary(), binary(), key(), value() | any()) -> ok | no_return().
 
 add(Schema, Table, Key, Value) 
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
@@ -62,8 +62,8 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     case pgdb:extended_query(Q, [Key, Value]) of
        {ok, _} -> 
            ok;
-       {error, _} = Error ->
-           Error
+       {error, Reason} ->
+           error(Reason)
     end;
 
 add(Schema, Table, Key, Value) 
@@ -76,7 +76,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec update(binary(), binary(), key(), any()) -> ok | pgdb:error().
+-spec update(binary(), binary(), key(), any()) -> ok | no_return().
 update(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     Q = [
@@ -85,8 +85,8 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     case pgdb:extended_query(Q, [Key, Value]) of
        {ok, _} -> 
            ok;
-       {error, _} = Error ->
-           Error
+       {error, Reason} ->
+           error(Reason)
     end;
 
 update(Schema, Table, Key, Value)
@@ -131,7 +131,7 @@ fetch(Schema, Table, Key, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec lookup(binary(), binary(), binary()) -> value() | false | pgdb:error().
+-spec lookup(binary(), binary(), binary()) -> value() | false | no_return().
 
 lookup(Schema, Table, Key) ->
     lookup(Schema, Table, Key, []).
@@ -142,7 +142,7 @@ lookup(Schema, Table, Key) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec lookup(binary(), binary(), key(), [proplists:property()]) -> 
-    value() | false | pgdb:error().
+    value() | false | no_return().
 
 lookup(Schema, Table, Key, Opts) ->
     Q = [
@@ -155,9 +155,9 @@ lookup(Schema, Table, Key, Opts) ->
         {ok, [{_, {jsonb, Value}}]} ->
             maybe_decode(decode_json(Opts), Value);
         {ok, L} ->
-            {error, {multiple_rows, L}};
-        {error, _} = Error ->
-            Error
+            error({multiple_rows, L});
+        {error, Reason} ->
+            error(Reason)
     end.
 
 
@@ -166,7 +166,7 @@ lookup(Schema, Table, Key, Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec list(binary(), binary()) -> 
-    [map() | proplists:proplists()] | iolist() | pgdb:error().
+    [map() | proplists:proplists()] | iolist() | no_return().
 
 list(Schema, Table) ->
     list(Schema, Table, []).
@@ -177,7 +177,7 @@ list(Schema, Table) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec list(binary(), binary(), list()) ->
-    [map() | proplists:proplists()] | iolist() | pgdb:error().
+    [map() | proplists:proplists()] | iolist() | no_return().
 
 list(Schema, Table, Opts) ->
     match(Schema, Table, <<>>, Opts).
@@ -189,7 +189,7 @@ list(Schema, Table, Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec match(binary(), binary(), binary()) ->
-    [map() | proplists:proplists()] | iolist() | pgdb:error().
+    [map() | proplists:proplists()] | iolist() | no_return().
 
 match(Schema, Table, Pattern) ->
     match(Schema, Table, Pattern, []).
@@ -200,7 +200,7 @@ match(Schema, Table, Pattern) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec match(binary(), binary(), binary(), list()) ->
-    [map() | proplists:proplists()] | iolist() | pgdb:error().
+    [map() | proplists:proplists()] | iolist() | no_return().
 
 match(Schema, Table, Patterns, Opts0) 
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
@@ -218,7 +218,7 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    maybe_unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1);
+    unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1);
 
 match(Schema, Table, Pattern, Opts) 
 when is_binary(Schema), is_binary(Table), is_list(Opts) ->
@@ -258,15 +258,15 @@ match_where_clause([], L) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec remove(binary(), binary(), binary()) -> ok | pgdb:error().
+-spec remove(binary(), binary(), binary()) -> ok | no_return().
 
 remove(Schema, Table, Key) ->
     Q = [<<"delete from ">>, ?SCHEMA_TABLE(Schema, Table), <<" where key = $1">>],
     case pgdb:extended_query(Q, [Key]) of
         {ok, 1} ->
             ok;
-        {error, _} = Error ->
-            Error
+        {error, Reason} ->
+            error(Reason)
     end.
 
 
@@ -279,10 +279,7 @@ remove(Schema, Table, Key) ->
 
 
 %% @private
-maybe_unwrap({error, _} = Error, _) ->
-    Error;
-
-maybe_unwrap({ok, Rows}, Opts) ->
+unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
     L = [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows],
     case Decode of 
