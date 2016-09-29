@@ -174,7 +174,7 @@ is_member(Schema, Table, Key) ->
         <<"select exists(select 1 from ">>, ?SCHEMA_TABLE(Schema, Table),
         <<" where key = $1);">>
     ],
-    {ok,[{Res}]} = pgdb:extended_query(Q, [Key]),
+    {ok, [{Res}]} = pgdb:extended_query(Q, [Key]),
     Res.
 
 
