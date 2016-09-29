@@ -44,6 +44,7 @@
 -export([match/4]).
 -export([remove/3]).
 -export([update/4]).
+-export([is_member/3]).
 
 
 
@@ -159,6 +160,22 @@ lookup(Schema, Table, Key, Opts) ->
         {error, Reason} ->
             error(Reason)
     end.
+
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec is_member(binary(), binary(), key()) -> boolean().
+
+is_member(Schema, Table, Key) ->
+    Q = [
+        <<"select exists(select 1 from ">>, ?SCHEMA_TABLE(Schema, Table),
+        <<" where key = $1);">>
+    ],
+    {ok,[{Res}]} = pgdb:extended_query(Q, [Key]),
+    Res.
 
 
 %% -----------------------------------------------------------------------------
