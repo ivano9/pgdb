@@ -221,10 +221,7 @@ match(Schema, Table, Pattern) ->
 
 match(Schema, Table, Patterns, Opts0) 
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
-    Q = [
-        <<"select key, (value::text)::jsonb from ">>, 
-        ?SCHEMA_TABLE(Schema, Table) | match_where_clause(Patterns)
-    ],
+    Q = match_query(lists:keyfind(select, 1, Opts0), Schema, Table, Patterns),
     {Q1, Opts1} = case lists:keytake(lock, 1, Opts0) of
         false ->
             {Q, Opts0};
@@ -240,6 +237,27 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
 match(Schema, Table, Pattern, Opts) 
 when is_binary(Schema), is_binary(Table), is_list(Opts) ->
     match(Schema, Table, [Pattern], Opts).
+
+%% @private
+match_query(false, Schema, Table, Patterns) ->
+    [
+        <<"select (value::text)::jsonb from ">>, 
+        ?SCHEMA_TABLE(Schema, Table) | match_where_clause(Patterns)
+    ];
+match_query({select, Fields}, Schema, Table, Patterns) ->
+% select row_to_json(r) :: jsonb from (select value :: jsonb ->>'id' as id from shipments.batch) as r
+    L = [
+        <<"value :: jsonb ->> ", $', F/binary, $'," as ", F/binary>> 
+        || F <- Fields
+    ],
+    Select = pgdb_utils:join_iolist(L, <<", ">>),
+    [
+        <<"select row_to_json(r) :: jsonb from (select ">>,
+        Select,
+        <<" from ">>, 
+        ?SCHEMA_TABLE(Schema, Table) | 
+        lists:append(match_where_clause(Patterns), [<<") as r;">>])
+    ].
 
 
 %% @private
@@ -298,7 +316,7 @@ remove(Schema, Table, Key) ->
 %% @private
 unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
-    L = [maybe_decode(Decode, Value) || {_, {jsonb, Value}} <- Rows],
+    L = [maybe_decode(Decode, Value) || {{jsonb, Value}} <- Rows],
     case Decode of 
         false ->
             pgdb_utils:to_json_iolist(L);
