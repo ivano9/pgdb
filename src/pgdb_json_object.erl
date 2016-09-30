@@ -247,8 +247,10 @@ match_query(false, Schema, Table, Patterns) ->
 match_query({select, Fields}, Schema, Table, Patterns) ->
 % select row_to_json(r) :: jsonb from (select value :: jsonb ->>'id' as id from shipments.batch) as r
     L = [
-        <<"value :: jsonb ->> ", $', F/binary, $'," as ", F/binary>> 
-        || F <- Fields
+        begin
+            Bin = field_to_bitstring(F),
+            <<"value :: jsonb ->> ", $', Bin/binary, $'," as ", Bin/binary>>
+        end || F <- Fields
     ],
     Select = pgdb_utils:join_iolist(L, <<", ">>),
     [
@@ -258,6 +260,12 @@ match_query({select, Fields}, Schema, Table, Patterns) ->
         ?SCHEMA_TABLE(Schema, Table) | 
         lists:append(match_where_clause(Patterns), [<<") as r;">>])
     ].
+
+%% @private
+field_to_bitstring(Term) when is_atom(Term) ->
+    list_to_bitstring(atom_to_list(Term));
+field_to_bitstring(Term) when is_bitstring(Term) ->
+    Term.
 
 
 %% @private
