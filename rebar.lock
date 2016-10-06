@@ -1,9 +1,18 @@
+{"1.1.0",
 [{<<"episcina">>,{pkg,<<"episcina">>,<<"1.1.0">>},0},
  {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.8">>},1},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.3.1">>},1},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.0">>},0},
  {<<"lager">>,{pkg,<<"lager">>,<<"3.2.1">>},0},
  {<<"pgsql">>,
-  {git,"git@github.com:semiocast/pgsql.git",
+  {git,"https://github.com/semiocast/pgsql.git",
        {ref,"14f632bc89e464d82ce3ef12a67ed8c2adb5b60c"}},
-  0}].
+  0}]}.
+[
+{pkg_hash,[
+ {<<"episcina">>, <<"20E99B3DB3F349D9620FF1A245F6B4D52A5E2468571938BCBE7FB4FCF4870507">>},
+ {<<"goldrush">>, <<"2024BA375CEEA47E27EA70E14D2C483B2D8610101B4E852EF7F89163CDB6E649">>},
+ {<<"gproc">>, <<"EC14F40CB941BDE3F940DE59C11E59BEB2977E90DBAE72FAB3DDF77743FD4EA9">>},
+ {<<"jsx">>, <<"749BEC6D205C694AE1786D62CEA6CC45A390437E24835FD16D12D74F07097727">>},
+ {<<"lager">>, <<"EEF4E18B39E4195D37606D9088EA05BF1B745986CF8EC84F01D332456FE88D17">>}]}
+].
