@@ -54,20 +54,20 @@
 %% -----------------------------------------------------------------------------
 -spec add(binary(), binary(), key(), value() | any()) -> ok | no_return().
 
-add(Schema, Table, Key, Value) 
+add(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     Q = [
-        <<"insert into ">>, ?SCHEMA_TABLE(Schema, Table), 
+        <<"insert into ">>, ?SCHEMA_TABLE(Schema, Table),
         <<"(key, value) values ($1, ($2::text)::jsonb);">>
     ],
     case pgdb:extended_query(Q, [Key, Value]) of
-       {ok, _} -> 
+       {ok, _} ->
            ok;
        {error, Reason} ->
            error(Reason)
     end;
 
-add(Schema, Table, Key, Value) 
+add(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key) ->
     add(Schema, Table, Key, jsx:encode(Value)).
 
@@ -81,10 +81,10 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 update(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
     Q = [
-        <<"update ">>, ?SCHEMA_TABLE(Schema, Table), 
+        <<"update ">>, ?SCHEMA_TABLE(Schema, Table),
         <<" set value = ($2::text)::jsonb where key = $1;">>],
     case pgdb:extended_query(Q, [Key, Value]) of
-       {ok, _} -> 
+       {ok, _} ->
            ok;
        {error, Reason} ->
            error(Reason)
@@ -100,8 +100,8 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec fetch(
-    Schema :: binary(), 
-    Table :: binary(), 
+    Schema :: binary(),
+    Table :: binary(),
     Key :: key()) -> value() | no_return().
 fetch(Schema, Table, Key) ->
     fetch(Schema, Table, Key, []).
@@ -112,8 +112,8 @@ fetch(Schema, Table, Key) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec fetch(
-    Schema :: binary(), 
-    Table :: binary(), 
+    Schema :: binary(),
+    Table :: binary(),
     Key :: key(),
     Opts :: [proplists:property()]) -> value() | no_return().
 fetch(Schema, Table, Key, Opts) ->
@@ -142,7 +142,7 @@ lookup(Schema, Table, Key) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec lookup(binary(), binary(), key(), [proplists:property()]) -> 
+-spec lookup(binary(), binary(), key(), [proplists:property()]) ->
     value() | false | no_return().
 
 lookup(Schema, Table, Key, Opts) ->
@@ -174,15 +174,19 @@ is_member(Schema, Table, Key) ->
         <<"select exists(select 1 from ">>, ?SCHEMA_TABLE(Schema, Table),
         <<" where key = $1);">>
     ],
-    {ok, [{Res}]} = pgdb:extended_query(Q, [Key]),
-    Res.
+    case pgdb:extended_query(Q, [Key]) of
+        {ok, [{Res}]} ->
+            Res;
+        _ ->
+            false
+    end.
 
 
 %% -----------------------------------------------------------------------------
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec list(binary(), binary()) -> 
+-spec list(binary(), binary()) ->
     [map() | proplists:proplists()] | iolist() | no_return().
 
 list(Schema, Table) ->
@@ -219,7 +223,7 @@ match(Schema, Table, Pattern) ->
 -spec match(binary(), binary(), binary(), list()) ->
     [map() | proplists:proplists()] | iolist() | no_return().
 
-match(Schema, Table, Patterns, Opts0) 
+match(Schema, Table, Patterns, Opts0)
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     Q = match_query(lists:keyfind(select, 1, Opts0), Schema, Table, Patterns),
     {Q1, Opts1} = case lists:keytake(lock, 1, Opts0) of
@@ -234,14 +238,14 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     end,
     unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1);
 
-match(Schema, Table, Pattern, Opts) 
+match(Schema, Table, Pattern, Opts)
 when is_binary(Schema), is_binary(Table), is_list(Opts) ->
     match(Schema, Table, [Pattern], Opts).
 
 %% @private
 match_query(false, Schema, Table, Patterns) ->
     [
-        <<"select (value::text)::jsonb from ">>, 
+        <<"select (value::text)::jsonb from ">>,
         ?SCHEMA_TABLE(Schema, Table) | match_where_clause(Patterns)
     ];
 match_query({select, Fields}, Schema, Table, Patterns) ->
@@ -256,8 +260,8 @@ match_query({select, Fields}, Schema, Table, Patterns) ->
     [
         <<"select row_to_json(r) :: jsonb from (select ">>,
         Select,
-        <<" from ">>, 
-        ?SCHEMA_TABLE(Schema, Table) | 
+        <<" from ">>,
+        ?SCHEMA_TABLE(Schema, Table) |
         lists:append(match_where_clause(Patterns), [<<") as r;">>])
     ].
 
@@ -325,7 +329,7 @@ remove(Schema, Table, Key) ->
 unwrap({ok, Rows}, Opts) ->
     Decode = decode_json(Opts),
     L = [maybe_decode(Decode, Value) || {{jsonb, Value}} <- Rows],
-    case Decode of 
+    case Decode of
         false ->
             pgdb_utils:to_json_iolist(L);
         _ ->
@@ -339,7 +343,7 @@ maybe_decode(false, Bin) ->
 maybe_decode({true, Opts}, Bin) ->
     jsx:decode(Bin, Opts).
 
-    
+
 
 
 %% @private
