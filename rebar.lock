@@ -5,7 +5,7 @@
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.0">>},0},
  {<<"lager">>,{pkg,<<"lager">>,<<"3.2.1">>},0},
  {<<"pgsql">>,
-  {git,"git@github.com:semiocast/pgsql.git",
+  {git,"https://github.com/semiocast/pgsql.git",
        {ref,"14f632bc89e464d82ce3ef12a67ed8c2adb5b60c"}},
   0}]}.
 [
