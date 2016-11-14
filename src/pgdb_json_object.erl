@@ -348,9 +348,9 @@ decode_json(Opts) ->
         {decode_json, false} ->
             false;
         {decode_json, true} ->
-            {true, [return_maps, {labels, existing_atom}]};
+            {true, [return_maps, {labels, attempt_atom}]};
         {decode_json, PList} ->
             {true, PList};
         false ->
-            {true, [return_maps, {labels, existing_atom}]}
+            {true, [return_maps, {labels, attempt_atom}]}
     end.
