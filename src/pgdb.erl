@@ -60,16 +60,22 @@
 -export([close/1]).
 -export([create_schema/2]).
 -export([create_schema/3]).
+-export([create_schema/4]).
 -export([drop_schema/1]).
+-export([drop_schema/2]).
 -export([extended_query/2]).
 -export([extended_query/3]).
 -export([extended_query/4]).
 -export([extended_query/5]).
 -export([fetch_schema/1]).
+-export([fetch_schema/2]).
 -export([get_connection/1]).
 -export([has_schema/1]).
+-export([has_schema/2]).
 -export([list_schemas/0]).
+-export([list_schemas/1]).
 -export([lookup_schema/1]).
+-export([lookup_schema/2]).
 -export([match/3]).
 -export([match/4]).
 -export([match/5]).
@@ -369,10 +375,10 @@ drop_schema(ID, Opts) when is_binary(ID) andalso is_list(Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 list_schemas() ->
-    list_schema([]).
+    list_schemas([]).
 
 
-list_schema(Opts) ->
+list_schemas(Opts) ->
     simple_query(?SELECT_SCHEMAS, [], ?QUERY_TIMEOUT, Opts).
 
 
