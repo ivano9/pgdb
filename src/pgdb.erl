@@ -22,20 +22,20 @@
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% This module provides and abstraction on top of the underlying 
+%% This module provides and abstraction on top of the underlying
 %% Postgresql db driver and connection pooling mechanism.
-%% It also provides the functionality to manage schemas and run 
+%% It also provides the functionality to manage schemas and run
 %% SQL queries.
 %% In addition to supporting all underlying db driver query types, this module
 %% also provides the match query type.
-%% 
+%%
 %% == Query Options ==
-%% - on_error_abort : If set to true and only during a transaction (explicit 
-%% via SQL commands or implict via the transaction/1 function) if any SQL 
-%% statement returns and error, we will rollback and throw an exception. This 
-%% is used internally in transaction/1 to be able to interrupt the execution 
-%% of the statements within the transaction. However, transaction/1 catches it 
-%% and returns an error. In case you issue an explicit transaction and 
+%% - on_error_abort : If set to true and only during a transaction (explicit
+%% via SQL commands or implict via the transaction/1 function) if any SQL
+%% statement returns and error, we will rollback and throw an exception. This
+%% is used internally in transaction/1 to be able to interrupt the execution
+%% of the statements within the transaction. However, transaction/1 catches it
+%% and returns an error. In case you issue an explicit transaction and
 %% on_error_abort is true, you will need to catch the exception.
 %% @end
 %% -----------------------------------------------------------------------------
@@ -93,8 +93,8 @@
 
 -type options() ::  [option()].
 
--type option()  ::  {pool, atom()} 
-                    | {on_error_abort, boolean()} % default: true 
+-type option()  ::  {pool, atom()}
+                    | {on_error_abort, boolean()} % default: true
                     | {max_rows_step, non_neg_integer()}
                     | {retry, boolean()} % default: false
                     | proplists:property().
@@ -112,8 +112,8 @@
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% Opens a new database connection. 
-%% This function is called by the pool manager every time it needs a new 
+%% Opens a new database connection.
+%% This function is called by the pool manager every time it needs a new
 %% connection. There is no need for you to use it directly.
 %% Args are the same for pgsql_connection:open/1.
 %% @end
@@ -126,8 +126,8 @@ open(Args) ->
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% Closes a new database connection. 
-%% This function is called by the pool manager every time it needs to close 
+%% Closes a new database connection.
+%% This function is called by the pool manager every time it needs to close
 %% a connection. There is no need for you to use it directly.
 %% @end
 %% -----------------------------------------------------------------------------
@@ -151,14 +151,14 @@ abort(Reason) ->
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% Returns a connection to the underlying db from the pool. 
-%% This is not required to perform queries using the facilities in this 
-%% module i.e the query functions will get a connection from the pool and 
-%% return it for you automatically. But you will need it in case you want to 
+%% Returns a connection to the underlying db from the pool.
+%% This is not required to perform queries using the facilities in this
+%% module i.e the query functions will get a connection from the pool and
+%% return it for you automatically. But you will need it in case you want to
 %% use the underlying driver directly.
-%% Once you are done with the connection you will need to return it to the 
+%% Once you are done with the connection you will need to return it to the
 %% pool by using return_connection/1.
-%% This function is equivalent to get_connection(Pool, Timeout) where 
+%% This function is equivalent to get_connection(Pool, Timeout) where
 %% Timeout is 2000 milliseconds (1s).
 %% @end
 %% -----------------------------------------------------------------------------
@@ -214,7 +214,7 @@ return_connection({PoolName, {pgsql_connection, Pid}}) ->
 
 %% -----------------------------------------------------------------------------
 %% @doc
-%% Returns `true` when the schema with name Name exists, 
+%% Returns `true` when the schema with name Name exists,
 %% `false` otherwise.
 %% @end
 %% -----------------------------------------------------------------------------
@@ -283,15 +283,22 @@ create_schema(SQL, Name) when is_binary(Name) ->
 %% -----------------------------------------------------------------------------
 -spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary()) ->
     {ok, row()} | error().
-create_schema(SQL, Name, Desc)
-    when is_binary(Name) andalso is_binary(Desc) ->
+create_schema(SQL, Name, Desc) ->
+     create_schema(SQL, Name, Desc, []).
+
+
+-spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary(), Opts :: list()) ->
+    {ok, row()} | error().
+create_schema(SQL, Name, Desc, Opts)
+    when is_binary(Name) andalso is_binary(Desc) andalso is_list(Opts) ->
     Q = pgdb_utils:subst(SQL, [{id, Name}, {desc, Desc}]),
-    case simple_query(Q, [{on_error_abort, false}], ?QUERY_TIMEOUT) of
+    case simple_query(Q, [{on_error_abort, false}], ?QUERY_TIMEOUT, Opts) of
         {ok, _} ->
             {ok, {Name, Desc}};
         {error, _} = Error ->
             Error
     end.
+
 
 
 %% -----------------------------------------------------------------------------
@@ -304,8 +311,13 @@ update_schema(Name, null) ->
     update_schema(Name, <<"null">>);
 update_schema(Name, Desc) when is_binary(Name), is_binary(Desc) ->
     % Desc can be 'null'
+    update_schema(Name, <<"null">>, []).
+
+
+update_schema(Name, Desc, Opts) when is_binary(Name), is_binary(Desc), is_list(Opts) ->
+    % Desc can be 'null'
     Q = [<<"comment on schema ">>, Name, <<" is ">>, $', Desc, $'],
-    case simple_query(Q, [], ?QUERY_TIMEOUT) of
+    case simple_query(Q, [], ?QUERY_TIMEOUT, Opts) of
         {ok, 1} ->
             {ok, {Name, Desc}};
         {error, _} = Error ->
@@ -322,8 +334,14 @@ update_schema(Name, Desc) when is_binary(Name), is_binary(Desc) ->
 -spec drop_schema(ID :: binary()) ->
     ok | error().
 drop_schema(ID) when is_binary(ID) ->
+    drop_schema(ID, []).
+
+
+-spec drop_schema(ID :: binary(), Opts :: list()) ->
+    ok | error().
+drop_schema(ID, Opts) when is_binary(ID) andalso is_list(Opts) ->
     Q = ["drop schema ", ID, " cascade"],
-    case simple_query(Q, [], ?QUERY_TIMEOUT) of
+    case simple_query(Q, [], ?QUERY_TIMEOUT, Opts) of
         {ok, _} ->
             ok;
         {error, _} = Error ->
@@ -337,7 +355,11 @@ drop_schema(ID) when is_binary(ID) ->
 %% @end
 %% -----------------------------------------------------------------------------
 list_schemas() ->
-    simple_query(?SELECT_SCHEMAS, [], ?QUERY_TIMEOUT).
+    list_schema([]).
+
+
+list_schema(Opts) ->
+    simple_query(?SELECT_SCHEMAS, [], ?QUERY_TIMEOUT, Opts).
 
 
 
@@ -531,7 +553,7 @@ match(Table, Proj, Conditions, Opts0, C)
 %% in the form of $var with each with property of the same name in Args.
 %% @end
 %% -----------------------------------------------------------------------------
--spec named_query(FileName :: string(), [proplists:property()]) -> 
+-spec named_query(FileName :: string(), [proplists:property()]) ->
     string() | error().
 named_query(FName, Args) ->
     {ok, File} = file:read_file(FName),
@@ -554,7 +576,7 @@ transaction(Fun) ->
 %% -----------------------------------------------------------------------------
 -spec transaction(Fun :: fun(() -> any()), Opts :: options()) -> any().
 transaction(Fun, Opts) ->
-    %% By calling maybe_get_connection we support nesting transaction/2 calls. 
+    %% By calling maybe_get_connection we support nesting transaction/2 calls.
     C = maybe_get_connection(get_pool_name(Opts)),
     transaction(Fun, Opts, C).
 
@@ -574,8 +596,8 @@ transaction(Fun, _Opts, C) ->
         ok = maybe_begin_tx(C),
         %% Fun should use this modules query functions, which they will
         %% do a rollback in case of an error.
-        %% If the option on_error_abort was set to true, then any error in 
-        %% the query functions used within the function block will throw 
+        %% If the option on_error_abort was set to true, then any error in
+        %% the query functions used within the function block will throw
         %% an exception which we catch below.
         Result = Fun(),
         ok = maybe_commit_tx(C),
@@ -910,8 +932,8 @@ add_expr('or', L, Q0) ->
 
 %% -----------------------------------------------------------------------------
 %% @private
-%% @doc 
-%% Prepares the output but also performs a rollback of an existing 
+%% @doc
+%% Prepares the output but also performs a rollback of an existing
 %% transaction if something failed
 %% @end
 %% -----------------------------------------------------------------------------
@@ -973,7 +995,7 @@ process_output({{alter, _What}, []}, _, _) ->
 process_output({'begin', []}, Opts, C) ->
     %% This is the result of a user explicitly sending the "begin;" sql command
     %% We call "begin;" out of band in begin_tx/1 so we shouldn't loop here.
-    %% If we are already in a tx we need to rollback 
+    %% If we are already in a tx we need to rollback
     %% (the block already processed) and abort.
     case is_in_tx() of
         true ->
@@ -988,11 +1010,11 @@ process_output({commit, []}, Opts, C) ->
     %% Cleanup
     case is_in_tx() of
         true ->
-            %% This could be horrible. 
-            %% The user sent an explicit commit in the middle of an implicit 
+            %% This could be horrible.
+            %% The user sent an explicit commit in the middle of an implicit
             %% transaction.
-            %% We are not sure anything is wrong but when it dos, we won't be 
-            %% able to rollback the changes because the user partially 
+            %% We are not sure anything is wrong but when it dos, we won't be
+            %% able to rollback the changes because the user partially
             %% committed them.
             %% For now we do not do anything smart and fail
             Desc = "Explicit transaction termination within implict transaction may have caused and inconsistent database state.",
@@ -1005,7 +1027,7 @@ process_output({commit, []}, Opts, C) ->
     end;
 
 process_output({rollback, []}, Opts, _C) ->
-    %% This is considered an error since not only the rollback command itself 
+    %% This is considered an error since not only the rollback command itself
     %% might return {rollback, []} e.g. commit will return this when a rollback
     %% was performed before it
     maybe_throw(is_in_tx(), rollback, Opts);
@@ -1163,7 +1185,7 @@ get_pool_name(Opts) ->
 %% @private
 %% @doc
 %% Tries to get a connection from the process dictionary and if it fails
-%% calls get_connection/1.  
+%% calls get_connection/1.
 %% transaction/2 uses the process dictionary to cache the current connection.
 %% @end
 %% -----------------------------------------------------------------------------
@@ -1188,7 +1210,7 @@ maybe_return_connection(C) ->
             % transaction/2 will explicitly return it when finish
             ok;
         _Other ->
-            % We are not in a tx or this is not the tx connection, 
+            % We are not in a tx or this is not the tx connection,
             % return it
             return_connection(C)
     end.
