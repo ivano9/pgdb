@@ -34,6 +34,7 @@
 -export_type([value/0]).
 
 -export([add/4]).
+-export([add/5]).
 -export([fetch/3]).
 -export([fetch/4]).
 -export([list/2]).
@@ -43,8 +44,11 @@
 -export([match/3]).
 -export([match/4]).
 -export([remove/3]).
+-export([remove/4]).
 -export([update/4]).
+-export([update/5]).
 -export([is_member/3]).
+-export([is_member/4]).
 
 
 
@@ -72,6 +76,31 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
     add(Schema, Table, Key, jsx:encode(Value)).
 
 
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec add(binary(), binary(), key(), value() | any(), list()) -> 
+    ok | no_return().
+
+add(Schema, Table, Key, Value, Opts)
+when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
+    Q = [
+        <<"insert into ">>, ?SCHEMA_TABLE(Schema, Table),
+        <<"(key, value) values ($1, ($2::text)::jsonb);">>
+    ],
+    case pgdb:extended_query(Q, [Key, Value], Opts) of
+       {ok, _} ->
+           ok;
+       {error, Reason} ->
+           error(Reason)
+    end;
+
+add(Schema, Table, Key, Value, Opts)
+when is_binary(Schema), is_binary(Table), is_binary(Key) ->
+    add(Schema, Table, Key, jsx:encode(Value), Opts).
+
+
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -93,6 +122,29 @@ when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
 update(Schema, Table, Key, Value)
 when is_binary(Schema), is_binary(Table), is_binary(Key) ->
     update(Schema, Table, Key, jsx:encode(Value)).
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec update(binary(), binary(), key(), any(), list()) -> ok | no_return().
+update(Schema, Table, Key, Value, Opts)
+when is_binary(Schema), is_binary(Table), is_binary(Key), is_binary(Value) ->
+    Q = [
+        <<"update ">>, ?SCHEMA_TABLE(Schema, Table),
+        <<" set value = ($2::text)::jsonb where key = $1;">>],
+    case pgdb:extended_query(Q, [Key, Value], Opts) of
+       {ok, _} ->
+           ok;
+       {error, Reason} ->
+           error(Reason)
+    end;
+
+update(Schema, Table, Key, Value, Opts)
+when is_binary(Schema), is_binary(Table), is_binary(Key) ->
+    update(Schema, Table, Key, jsx:encode(Value), Opts).
+
 
 
 %% -----------------------------------------------------------------------------
@@ -175,6 +227,25 @@ is_member(Schema, Table, Key) ->
         <<" where key = $1);">>
     ],
     case pgdb:extended_query(Q, [Key]) of
+        {ok, [{Res}]} ->
+            Res;
+        _ ->
+            false
+    end.
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec is_member(binary(), binary(), key(), list()) -> boolean().
+
+is_member(Schema, Table, Key, Opts) ->
+    Q = [
+        <<"select exists(select 1 from ">>, ?SCHEMA_TABLE(Schema, Table),
+        <<" where key = $1);">>
+    ],
+    case pgdb:extended_query(Q, [Key], Opts) of
         {ok, [{Res}]} ->
             Res;
         _ ->
@@ -316,6 +387,22 @@ remove(Schema, Table, Key) ->
             error(Reason)
     end.
 
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec remove(binary(), binary(), binary(), list()) -> ok | no_return().
+
+remove(Schema, Table, Key, Opts) ->
+    Q = [<<"delete from ">>, ?SCHEMA_TABLE(Schema, Table), <<" where key = $1">>],
+    case pgdb:extended_query(Q, [Key], Opts) of
+        {ok, 1} ->
+            ok;
+        {error, Reason} ->
+            error(Reason)
+    end.
 
 
 
