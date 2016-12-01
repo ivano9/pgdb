@@ -253,7 +253,7 @@ fetch_schema(Name) ->
 
 -spec fetch_schema(Name :: binary(), Opts :: list()) -> {ok, row()} | error().
 fetch_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
-    case lookup_schema(Name) of
+    case lookup_schema(Name, Opts) of
         false ->
             error({unknown_schema, Name});
         {error, Reason} ->
@@ -273,7 +273,7 @@ lookup_schema(Name) ->
 
 lookup_schema(Name, Opts) when is_binary(Name) andalso is_list(Opts) ->
     Q = ?SELECT_SCHEMA([{id, Name}]),
-    case simple_query(Q, [], ?QUERY_TIMEOUT) of
+    case simple_query(Q, Opts, ?QUERY_TIMEOUT) of
         {ok, []} ->
             false;
         {ok, [R]} ->
@@ -312,7 +312,7 @@ create_schema(SQL, Name, Desc) ->
 create_schema(SQL, Name, Desc, Opts)
     when is_binary(Name) andalso is_binary(Desc) andalso is_list(Opts) ->
     Q = pgdb_utils:subst(SQL, [{id, Name}, {desc, Desc}]),
-    case simple_query(Q, [{on_error_abort, false}], ?QUERY_TIMEOUT, Opts) of
+    case simple_query(Q, [{on_error_abort, false} | Opts], ?QUERY_TIMEOUT) of
         {ok, _} ->
             {ok, {Name, Desc}};
         {error, _} = Error ->
@@ -337,7 +337,7 @@ update_schema(Name, Desc) when is_binary(Name), is_binary(Desc) ->
 update_schema(Name, Desc, Opts) when is_binary(Name), is_binary(Desc), is_list(Opts) ->
     % Desc can be 'null'
     Q = [<<"comment on schema ">>, Name, <<" is ">>, $', Desc, $'],
-    case simple_query(Q, [], ?QUERY_TIMEOUT, Opts) of
+    case simple_query(Q, Opts, ?QUERY_TIMEOUT) of
         {ok, 1} ->
             {ok, {Name, Desc}};
         {error, _} = Error ->
@@ -361,7 +361,7 @@ drop_schema(ID) when is_binary(ID) ->
     ok | error().
 drop_schema(ID, Opts) when is_binary(ID) andalso is_list(Opts) ->
     Q = ["drop schema ", ID, " cascade"],
-    case simple_query(Q, [], ?QUERY_TIMEOUT, Opts) of
+    case simple_query(Q, Opts, ?QUERY_TIMEOUT) of
         {ok, _} ->
             ok;
         {error, _} = Error ->
@@ -379,7 +379,7 @@ list_schemas() ->
 
 
 list_schemas(Opts) ->
-    simple_query(?SELECT_SCHEMAS, [], ?QUERY_TIMEOUT, Opts).
+    simple_query(?SELECT_SCHEMAS, Opts, ?QUERY_TIMEOUT).
 
 
 
