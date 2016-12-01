@@ -219,8 +219,13 @@ return_connection({PoolName, {pgsql_connection, Pid}}) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec has_schema(Name :: binary()) -> boolean().
-has_schema(Name) when is_binary(Name) ->
-    case lookup_schema(Name) of
+has_schema(Name) ->
+    has_schema(Name, []).
+
+
+-spec has_schema(Name :: binary(), Opts :: list()) -> boolean().
+has_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
+    case lookup_schema(Name, Opts) of
         {error, Reason} ->
             error(Reason);
         false ->
@@ -236,7 +241,12 @@ has_schema(Name) when is_binary(Name) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec fetch_schema(Name :: binary()) -> {ok, row()} | error().
-fetch_schema(Name) when is_binary(Name) ->
+fetch_schema(Name) ->
+    fetch_schema(Name, []).
+
+
+-spec fetch_schema(Name :: binary(), Opts :: list()) -> {ok, row()} | error().
+fetch_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
     case lookup_schema(Name) of
         false ->
             error({unknown_schema, Name});
@@ -251,7 +261,11 @@ fetch_schema(Name) when is_binary(Name) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
-lookup_schema(Name) when is_binary(Name) ->
+lookup_schema(Name) ->
+    lookup_schema(Name, []).
+
+
+lookup_schema(Name, Opts) when is_binary(Name) andalso is_list(Opts) ->
     Q = ?SELECT_SCHEMA([{id, Name}]),
     case simple_query(Q, [], ?QUERY_TIMEOUT) of
         {ok, []} ->
