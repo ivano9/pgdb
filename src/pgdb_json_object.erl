@@ -348,19 +348,34 @@ match_where_clause(Patterns) ->
     match_where_clause(Patterns, []).
 
 %% @private
+match_where_clause([{'not', <<>>} | T], Acc) ->
+    match_where_clause(T, Acc);
+
+match_where_clause([{'not', <<"{}">>}|T], Acc) ->
+    match_where_clause(T, Acc);
+
+match_where_clause([{'not', Json}|T], Acc) when is_binary(Json) ->
+    Clause = <<" not value @> ", $', Json/binary, $'>>,
+    match_where_clause(T, [Clause|Acc]);
+
+match_where_clause([{'not', Pat}|T], Acc) ->
+    Json = jsx:encode(Pat),
+    Clause = <<" not value @> ", $', Json/binary, $'>>,
+    match_where_clause(T, [Clause|Acc]);
+
 match_where_clause([<<>>|T], Acc) ->
     match_where_clause(T, Acc);
 
 match_where_clause([<<"{}">>|T], Acc) ->
     match_where_clause(T, Acc);
 
-match_where_clause([Bin|T], Acc) when is_binary(Bin) ->
-    Clause = <<" value @> ", $', Bin/binary, $'>>,
+match_where_clause([Json|T], Acc) when is_binary(Json) ->
+    Clause = <<" value @> ", $', Json/binary, $'>>,
     match_where_clause(T, [Clause|Acc]);
 
 match_where_clause([Pat|T], Acc) ->
-    Bin = jsx:encode(Pat),
-    Clause = <<" value @> ", $', Bin/binary, $'>>,
+    Json = jsx:encode(Pat),
+    Clause = <<" value @> ", $', Json/binary, $'>>,
     match_where_clause(T, [Clause|Acc]);
 
 match_where_clause([], []) ->
