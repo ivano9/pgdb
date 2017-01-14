@@ -296,10 +296,18 @@ match(Schema, Table, Pattern) ->
 
 match(Schema, Table, Patterns, Opts0)
 when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
-    Q = match_query(lists:keyfind(select, 1, Opts0), Schema, Table, Patterns),
-    {Q1, Opts1} = case lists:keytake(lock, 1, Opts0) of
+    {SortBy, Opts1} = case lists:keytake(order_by, 1, Opts0) of
         false ->
-            {Q, Opts0};
+            {[], Opts0};
+        {value, L, NewOpts0} when is_list(L)->
+            {L, NewOpts0}
+    end,
+    Q = match_query(
+        lists:keyfind(select, 1, Opts1), Schema, Table, Patterns, SortBy),
+    
+    {Q1, Opts2} = case lists:keytake(lock, 1, Opts1) of
+        false ->
+            {Q, Opts1};
         {value, {lock, exclusive}, NewOpts} ->
             NewQ = lists:append(Q, [<<" for update">>]),
             {NewQ, NewOpts};
@@ -307,19 +315,24 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
             NewQ = lists:append(Q, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    unwrap(pgdb:simple_query(lists:flatten(Q1), Opts1), Opts1);
+    unwrap(pgdb:simple_query(lists:flatten(Q1), Opts2), Opts2);
 
 match(Schema, Table, Pattern, Opts)
 when is_binary(Schema), is_binary(Table), is_list(Opts) ->
     match(Schema, Table, [Pattern], Opts).
 
+
 %% @private
-match_query(false, Schema, Table, Patterns) ->
+match_query(false, Schema, Table, Patterns, SortBy) ->
     [
         <<"select (value::text)::jsonb from ">>,
-        ?SCHEMA_TABLE(Schema, Table) | match_where_clause(Patterns)
+        ?SCHEMA_TABLE(Schema, Table) | 
+        lists:append(
+            match_where_clauses(Patterns),
+            match_sort_by_clause(SortBy))
     ];
-match_query({select, Fields}, Schema, Table, Patterns) ->
+
+match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
 % select row_to_json(r) :: jsonb from (select value :: jsonb ->>'id' as id from shipments.batch) as r
     L = [
         begin
@@ -327,14 +340,18 @@ match_query({select, Fields}, Schema, Table, Patterns) ->
             <<"value :: jsonb ->> ", $', Bin/binary, $'," as ", Bin/binary>>
         end || F <- Fields
     ],
-    Select = pgdb_utils:join_iolist(L, <<", ">>),
+    Proj = pgdb_utils:join_iolist(L, <<", ">>),
     [
-        <<"select row_to_json(r) :: jsonb from (select ">>,
-        Select,
+        <<"select row_to_json(row) :: jsonb from (select ">>,
+        Proj,
         <<" from ">>,
         ?SCHEMA_TABLE(Schema, Table) |
-        lists:append(match_where_clause(Patterns), [<<") as r;">>])
+        lists:append(
+            match_where_clauses(Patterns), 
+            match_sort_by_clause(SortBy), 
+            [<<") as row;">>])
     ].
+
 
 %% @private
 field_to_bitstring(Term) when is_atom(Term) ->
@@ -344,46 +361,100 @@ field_to_bitstring(Term) when is_bitstring(Term) ->
 
 
 %% @private
-match_where_clause(Patterns) ->
-    match_where_clause(Patterns, []).
+match_where_clauses(Patterns) ->
+    match_where_clauses(Patterns, []).
 
 %% @private
-match_where_clause([{'not', <<>>} | T], Acc) ->
-    match_where_clause(T, Acc);
+% match_where_clauses([{'and', Ps}|T], Acc) when is_list(Ps) ->   
+%     Conj = pgdb_utils:join_iolist([match_where_clause(P) || P <- Ps], <<" AND">>),
+%     match_where_clauses(T, [Conj|Acc]);
 
-match_where_clause([{'not', <<"{}">>}|T], Acc) ->
-    match_where_clause(T, Acc);
+match_where_clauses([{'not', <<>>} | T], Acc) ->
+    match_where_clauses(T, Acc);
 
-match_where_clause([{'not', Json}|T], Acc) when is_binary(Json) ->
+match_where_clauses([{'not', <<"{}">>}|T], Acc) ->
+    match_where_clauses(T, Acc);
+
+match_where_clauses([{'not', Json}|T], Acc) when is_binary(Json) ->
     Clause = <<" not value @> ", $', Json/binary, $'>>,
-    match_where_clause(T, [Clause|Acc]);
+    match_where_clauses(T, [Clause|Acc]);
 
-match_where_clause([{'not', Pat}|T], Acc) ->
+match_where_clauses([{'not', Pat}|T], Acc) ->
     Json = jsx:encode(Pat),
     Clause = <<" not value @> ", $', Json/binary, $'>>,
-    match_where_clause(T, [Clause|Acc]);
+    match_where_clauses(T, [Clause|Acc]);
 
-match_where_clause([<<>>|T], Acc) ->
-    match_where_clause(T, Acc);
+match_where_clauses([<<>>|T], Acc) ->
+    match_where_clauses(T, Acc);
 
-match_where_clause([<<"{}">>|T], Acc) ->
-    match_where_clause(T, Acc);
+match_where_clauses([<<"{}">>|T], Acc) ->
+    match_where_clauses(T, Acc);
 
-match_where_clause([Json|T], Acc) when is_binary(Json) ->
+match_where_clauses([Json|T], Acc) when is_binary(Json) ->
     Clause = <<" value @> ", $', Json/binary, $'>>,
-    match_where_clause(T, [Clause|Acc]);
+    match_where_clauses(T, [Clause|Acc]);
 
-match_where_clause([Pat|T], Acc) ->
+match_where_clauses([Pat|T], Acc) ->
     Json = jsx:encode(Pat),
     Clause = <<" value @> ", $', Json/binary, $'>>,
-    match_where_clause(T, [Clause|Acc]);
+    match_where_clauses(T, [Clause|Acc]);
 
-match_where_clause([], []) ->
+match_where_clauses([], []) ->
     [<<>>];
 
-match_where_clause([], L) ->
+match_where_clauses([], L) ->
     Clauses = pgdb_utils:join_iolist(L, <<" OR">>),
-    [<<" where ">> | Clauses].
+    [<<" WHERE ">> | Clauses].
+
+
+%% @private
+match_sort_by_clause(Fields) ->
+    L = [
+        begin
+            case X of
+                {Bin, asc} when is_binary(Bin) ->
+                    <<"value ->> '", Bin/binary, "' ASC">>;
+                {Bin, desc} when is_binary(Bin) ->
+                    <<"value ->> '", Bin/binary, "' DESC">>;
+                {F, asc} when is_atom(F) ->
+                    Bin = list_to_bitstring(atom_to_list(F)),
+                    <<"value ->> '", Bin/binary, "' ASC">>;
+                {F, desc} when is_atom(F) ->
+                    Bin = list_to_bitstring(atom_to_list(F)),
+                    <<"value ->> '", Bin/binary, "' DESC">>
+            end
+        end || X <- Fields
+    ],
+    [<<" ORDER BY ">> | pgdb_utils:join_iolist(L, <<", ">>)].
+
+    
+% %% @private
+% match_where_clause({'not', <<>>}) ->
+%     [];
+
+% match_where_clause([{'not', <<"{}">>}) ->
+%     [];
+
+% match_where_clause({'not', Json}) when is_binary(Json) ->
+%     <<" not value @> ", $', Json/binary, $'>>;
+
+% match_where_clause({'not', Pat}) ->
+%     Json = jsx:encode(Pat),
+%     <<" not value @> ", $', Json/binary, $'>>;
+
+% match_where_clause(<<>>) ->
+%     [];
+
+% match_where_clause(<<"{}">>) ->
+%     [];
+
+% match_where_clause(Json) when is_binary(Json) ->
+%     <<" value @> ", $', Json/binary, $'>>;
+
+% match_where_clauses([Pat|T], Acc) ->
+%     Json = jsx:encode(Pat),
+%     <<" value @> ", $', Json/binary, $'>>.
+
 
 
 
