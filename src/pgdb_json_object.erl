@@ -299,7 +299,7 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     {SortBy, Opts1} = case lists:keytake(order_by, 1, Opts0) of
         false ->
             {[], Opts0};
-        {value, L, NewOpts0} when is_list(L)->
+        {value, {order_by, L}, NewOpts0} when is_list(L)->
             {L, NewOpts0}
     end,
     Q = match_query(
@@ -410,7 +410,7 @@ match_where_clauses([], L) ->
 %% @private
 match_sort_by_clause([]) ->
     [];
-    
+
 match_sort_by_clause(Fields) ->
     L = [
         begin
