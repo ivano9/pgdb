@@ -408,6 +408,9 @@ match_where_clauses([], L) ->
 
 
 %% @private
+match_sort_by_clause([]) ->
+    [];
+    
 match_sort_by_clause(Fields) ->
     L = [
         begin
