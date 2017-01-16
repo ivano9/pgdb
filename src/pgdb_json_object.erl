@@ -346,10 +346,11 @@ match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
         Proj,
         <<" from ">>,
         ?SCHEMA_TABLE(Schema, Table) |
-        lists:append(
+        lists:append([
             match_where_clauses(Patterns), 
             match_sort_by_clause(SortBy), 
-            [<<") as row;">>])
+            [<<") as row;">>]
+        ])
     ].
 
 
