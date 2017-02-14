@@ -334,12 +334,7 @@ match_query(false, Schema, Table, Patterns, SortBy) ->
 
 match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
 % select row_to_json(r) :: jsonb from (select value :: jsonb ->>'id' as id from shipments.batch) as r
-    L = [
-        begin
-            Bin = attr_to_sql(F),
-            <<"value :: jsonb ->> ", $', Bin/binary, $'," as ", Bin/binary>>
-        end || F <- Fields
-    ],
+    L = [attr_to_sql(F)|| F <- Fields],
     Proj = pgdb_utils:join_iolist(L, <<", ">>),
     [
         <<"select row_to_json(row) :: jsonb from (select ">>,
