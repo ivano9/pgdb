@@ -363,7 +363,7 @@ attr_to_sql({Attr, Type}) when is_atom(Attr) ->
     attr_to_sql({list_to_bitstring(atom_to_list(Attr)), Type});
 
 attr_to_sql({Attr, Type}) when is_atom(Type) ->
-    attr_to_sql({Attr, list_to_bitstring(atom_to_list(Attr))}).
+    attr_to_sql({Attr, list_to_bitstring(atom_to_list(Type))}).
 
 
 
