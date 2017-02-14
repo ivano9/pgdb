@@ -336,7 +336,7 @@ match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
 % select row_to_json(r) :: jsonb from (select value :: jsonb ->>'id' as id from shipments.batch) as r
     L = [
         begin
-            Bin = field_to_bitstring(F),
+            Bin = attr_to_sql(F),
             <<"value :: jsonb ->> ", $', Bin/binary, $'," as ", Bin/binary>>
         end || F <- Fields
     ],
@@ -355,10 +355,27 @@ match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
 
 
 %% @private
-field_to_bitstring(Term) when is_atom(Term) ->
-    list_to_bitstring(atom_to_list(Term));
-field_to_bitstring(Term) when is_bitstring(Term) ->
-    Term.
+attr_to_sql(Attr) when is_bitstring(Attr) ->
+    <<"value :: jsonb ->> ", $', Attr/binary, $'," as ", Attr/binary>>;
+
+attr_to_sql(Attr) when is_atom(Attr) ->
+    attr_to_sql(atom_to_list(Attr));
+
+attr_to_sql({Attr, Type}) when is_atom(Attr) ->
+    attr_to_sql({atom_to_list(Attr), Type});
+
+attr_to_sql({Attr, Type}) when is_atom(Type) ->
+    attr_to_sql({atom_to_list(Attr), Type});
+
+attr_to_sql({Attr, Type}) ->
+    attr_to_sql(Attr, Type).
+
+
+attr_to_sql(Attr, Type) ->
+    <<
+        "(value :: jsonb ->> ", $', Attr/binary, $', ")::", Type/binary,
+        " as ", Attr/binary
+    >>.
 
 
 %% @private
