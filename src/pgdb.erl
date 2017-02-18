@@ -623,11 +623,19 @@ transaction(Fun, _Opts, C) ->
         ok = maybe_commit_tx(C),
         Result
     catch
-        _Class:Reason ->
-            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
-            %% Manual rollback
+        throw:Reason ->
+            %% An internal exception
+            %% We force a rollback
             _ = maybe_rollback(true, C),
-            maybe_throw(is_nested_tx(), Reason)
+            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
+            maybe_throw(is_nested_tx(), Reason);
+        _:Reason ->
+            %% A user exception, we need to raise it again up the
+            %% nested transation stack and out
+            %% We force a rollback
+            _ = maybe_rollback(true, C),
+            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
+            error(Reason)
     after
         ok = maybe_terminate_tx(C),
         ok = maybe_return_connection(C)
@@ -1121,10 +1129,12 @@ coalesce_output([H | T], Rs, Rows, Cnt, InTx, Opts, C) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+-spec maybe_throw(InTx :: boolean(), any()) -> no_return() | {error, any()}.
 maybe_throw(true, Reason) ->
     throw(Reason);
 maybe_throw(false, Reason) ->
     {error, Reason}.
+
 
 
 %% -----------------------------------------------------------------------------
