@@ -623,7 +623,7 @@ transaction(Fun, _Opts, C) ->
         ok = maybe_commit_tx(C),
         Result
     catch
-        throw:Reason ->
+        _Class:Reason ->
             lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
             %% Manual rollback
             _ = maybe_rollback(true, C),
