@@ -152,7 +152,7 @@ close(Pid) ->
 %% @end
 %% -----------------------------------------------------------------------------
 abort(Reason) ->
-    throw({abort, Reason}).
+    throw(Reason).
 
 
 %% -----------------------------------------------------------------------------
@@ -623,10 +623,11 @@ transaction(Fun, _Opts, C) ->
         ok = maybe_commit_tx(C),
         Result
     catch
-        _:Reason ->
+        throw:Reason ->
+            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
             %% Manual rollback
             _ = maybe_rollback(true, C),
-            maybe_error(is_nested_tx(), Reason)
+            maybe_throw(is_nested_tx(), Reason)
     after
         ok = maybe_terminate_tx(C),
         ok = maybe_return_connection(C)
@@ -967,7 +968,7 @@ process_output(L, Opts, C) when is_list(L) ->
 process_output({error, Reason}, Opts, C) ->
     InTx = is_in_tx(),
     _ = maybe_rollback(InTx, C),
-    maybe_error(InTx, format_reason(Reason), Opts);
+    maybe_throw(InTx, format_reason(Reason), Opts);
 
 process_output({{insert, _TableOID, Count}, []}, _, _) ->
     {ok, Count};
@@ -1019,11 +1020,8 @@ process_output({'begin', []}, Opts, C) ->
     case is_in_tx() of
         true ->
             _ = maybe_rollback(true, C),
-            Reason = {
-                existing_transaction_in_progress, 
-                <<"Nested transactions not supported. Explicit transaction cannot join existing transactions.">>
-            },
-            maybe_error(true, format_reason(Reason), Opts);
+            Reason = {existing_transaction_in_progress, <<"Nested transactions not supported. Explicit transaction cannot join existing transactions.">>},
+            maybe_throw(true, format_reason(Reason), Opts);
         false ->
             {ok, 0}
     end;
@@ -1035,15 +1033,15 @@ process_output({commit, []}, Opts, C) ->
             %% This could be horrible.
             %% The user sent an explicit commit in the middle of an implicit
             %% transaction.
-            %% We are not sure anything is wrong but when it does, we won't be
+            %% We are not sure anything is wrong but when it dos, we won't be
             %% able to rollback the changes because the user partially
             %% committed them.
             %% For now we do not do anything smart and fail
-            Desc = <<"Explicit transaction termination within implict transaction may have caused and inconsistent database state.">>,
+            Desc = "Explicit transaction termination within implict transaction may have caused and inconsistent database state.",
             Reason = {inconsistent_state, Desc},
             lager:warning(Desc),
             _ = maybe_rollback(true, C),
-            maybe_error(true, format_reason(Reason), Opts);
+            maybe_throw(true, format_reason(Reason), Opts);
         false ->
             {ok, 0}
     end;
@@ -1052,7 +1050,7 @@ process_output({rollback, []}, Opts, _C) ->
     %% This is considered an error since not only the rollback command itself
     %% might return {rollback, []} e.g. commit will return this when a rollback
     %% was performed before it
-    maybe_error(is_in_tx(), rollback, Opts);
+    maybe_throw(is_in_tx(), rollback, Opts);
 
 process_output({set, []}, _, _) ->
     {ok, 0};
@@ -1067,7 +1065,7 @@ process_output({'do', []}, _, _) ->
     {ok, 0};
 
 process_output({Other, []}, Opts, _) ->
-    maybe_error(is_in_tx(), {unknown_command, Other}, Opts).
+    maybe_throw(is_in_tx(), {unknown_command, Other}, Opts).
 
 
 %% -----------------------------------------------------------------------------
@@ -1093,12 +1091,12 @@ coalesce_output([], [], Rows, _, _, _, _) ->
 coalesce_output([], [R], _, _, InTx, Opts, C) ->
     %% We have one error
     _ = maybe_rollback(InTx, C),
-    maybe_error(InTx, R, Opts);
+    maybe_throw(InTx, R, Opts);
 
 coalesce_output([], Rs, _, _, InTx, Opts, C) ->
     %% We have multiple errors
     _ = maybe_rollback(InTx, C),
-    maybe_error(InTx, {multiple, Rs}, Opts);
+    maybe_throw(InTx, {multiple, Rs}, Opts);
 
 coalesce_output([{error, R} | T], Rs, Rows, Cnt, InTx, Opts, C) ->
     coalesce_output(T, [format_reason(R) | Rs], Rows, Cnt, InTx, Opts, C);
@@ -1123,10 +1121,9 @@ coalesce_output([H | T], Rs, Rows, Cnt, InTx, Opts, C) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
-maybe_error(true, Reason) ->
-    error(Reason);
-
-maybe_error(false, Reason) ->
+maybe_throw(true, Reason) ->
+    throw(Reason);
+maybe_throw(false, Reason) ->
     {error, Reason}.
 
 
@@ -1135,17 +1132,17 @@ maybe_error(false, Reason) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
-maybe_error(false, Reason, _Opts) ->
-    maybe_error(false, Reason);
+maybe_throw(false, Reason, _Opts) ->
+    maybe_throw(false, Reason);
 
-maybe_error(true, Reason, Opts) ->
+maybe_throw(true, Reason, Opts) ->
     case lists:keyfind(on_error_abort, 1, Opts) of
         {on_error_abort, Val} ->
-            maybe_error(Val, Reason);
+            maybe_throw(Val, Reason);
         false ->
-            maybe_error(?DEFAULT_ON_ERROR_ABORT, Reason);
+            maybe_throw(?DEFAULT_ON_ERROR_ABORT, Reason);
         Other ->
-            error({invalid_option, Other})
+            throw({invalid_option, Other})
     end.
 
 
