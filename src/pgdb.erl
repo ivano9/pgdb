@@ -42,6 +42,23 @@
 -module(pgdb).
 -include("pgdb.hrl").
 
+-define(DEFAULT_ON_ERROR_ABORT, true).
+-define(GET_CONN_RETRIES, 10).
+-define(GET_CONN_RETRY_TIMEOUT, 1000).
+-define(GET_CONN_TIMEOUT, 10000).
+-define(QUERY_TIMEOUT, 10000).
+
+-type options() ::  [option()].
+
+-type option()  ::  {pool, atom()}
+                    | {on_error_abort, boolean()} % default: true
+                    | {max_rows_step, non_neg_integer()}
+                    | {retry, boolean()} % default: false
+                    | proplists:property().
+
+-type connection() :: {Pool :: atom(), pgsql_connection:pgsql_connection()}.
+
+
 -type condition()       ::  {condition_op(), db_field(), any()}.
 -type condition_op()    ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
 -type db_field()        ::  binary().
@@ -91,21 +108,7 @@
 -export([update_schema/2]).
 
 
--define(DEFAULT_ON_ERROR_ABORT, true).
--define(GET_CONN_RETRIES, 10).
--define(GET_CONN_RETRY_TIMEOUT, 1000).
--define(GET_CONN_TIMEOUT, 5000).
--define(QUERY_TIMEOUT, 5000).
 
--type options() ::  [option()].
-
--type option()  ::  {pool, atom()}
-                    | {on_error_abort, boolean()} % default: true
-                    | {max_rows_step, non_neg_integer()}
-                    | {retry, boolean()} % default: false
-                    | proplists:property().
-
--type connection() :: {Pool :: atom(), pgsql_connection:pgsql_connection()}.
 
 
 
@@ -165,7 +168,7 @@ abort(Reason) ->
 %% Once you are done with the connection you will need to return it to the
 %% pool by using return_connection/1.
 %% This function is equivalent to get_connection(Pool, Timeout) where
-%% Timeout is 2000 milliseconds (1s).
+%% Timeout is 10000 milliseconds (10s).
 %% @end
 %% -----------------------------------------------------------------------------
 -spec get_connection(atom()) -> connection() | {error, timeout}.
