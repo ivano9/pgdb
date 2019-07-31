@@ -128,6 +128,7 @@
 %% @end
 %% -----------------------------------------------------------------------------
 -spec open(list()) -> {ok, pid()}.
+
 open(Args) ->
     {pgsql_connection, Pid} = pgsql_connection:open(Args),
     {ok, Pid}.
@@ -141,6 +142,7 @@ open(Args) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec close(pid()) -> ok.
+
 close(Pid) ->
     pgsql_connection:close({pgsql_connection, Pid}).
 
@@ -172,6 +174,7 @@ abort(Reason) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec get_connection(atom()) -> connection() | {error, timeout}.
+
 get_connection(Pool) ->
     get_connection(Pool, ?GET_CONN_TIMEOUT).
 
@@ -212,6 +215,7 @@ get_connection(PoolName, Timeout, Retries) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec return_connection(C :: connection()) -> ok.
+
 return_connection({PoolName, {pgsql_connection, Pid}}) ->
     episcina:return_connection(PoolName, Pid).
 
@@ -228,11 +232,13 @@ return_connection({PoolName, {pgsql_connection, Pid}}) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec has_schema(Name :: binary()) -> boolean().
+
 has_schema(Name) ->
     has_schema(Name, []).
 
 
 -spec has_schema(Name :: binary(), Opts :: list()) -> boolean().
+
 has_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
     case lookup_schema(Name, Opts) of
         {error, Reason} ->
@@ -250,11 +256,13 @@ has_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec fetch_schema(Name :: binary()) -> {ok, row()} | error().
+
 fetch_schema(Name) ->
     fetch_schema(Name, []).
 
 
 -spec fetch_schema(Name :: binary(), Opts :: list()) -> {ok, row()} | error().
+
 fetch_schema(Name, Opts) when is_binary(Name), is_list(Opts) ->
     case lookup_schema(Name, Opts) of
         false ->
@@ -293,6 +301,7 @@ lookup_schema(Name, Opts) when is_binary(Name) andalso is_list(Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec create_schema(SQL :: list(), Name :: binary()) -> {ok, row()} | error().
+
 create_schema(SQL, Name) when is_binary(Name) ->
     create_schema(SQL, Name, <<"">>).
 
@@ -306,12 +315,15 @@ create_schema(SQL, Name) when is_binary(Name) ->
 %% -----------------------------------------------------------------------------
 -spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary()) ->
     {ok, row()} | error().
+
 create_schema(SQL, Name, Desc) ->
      create_schema(SQL, Name, Desc, []).
 
 
--spec create_schema(SQL :: list(), Name :: binary(), Desc :: binary(), Opts :: list()) ->
+-spec create_schema(
+    SQL :: list(), Name :: binary(), Desc :: binary(), Opts :: list()) ->
     {ok, row()} | error().
+
 create_schema(SQL, Name, Desc, Opts)
     when is_binary(Name) andalso is_binary(Desc) andalso is_list(Opts) ->
     Q = pgdb_utils:subst(SQL, [{id, Name}, {desc, Desc}]),
@@ -330,8 +342,10 @@ create_schema(SQL, Name, Desc, Opts)
 %% -----------------------------------------------------------------------------
 -spec update_schema(Name :: binary(), Desc :: binary()) ->
     {ok, row()} | error().
+
 update_schema(Name, null) ->
     update_schema(Name, <<"null">>);
+
 update_schema(Name, Desc) when is_binary(Name), is_binary(Desc) ->
     % Desc can be 'null'
     update_schema(Name, <<"null">>, []).
@@ -354,14 +368,14 @@ update_schema(Name, Desc, Opts) when is_binary(Name), is_binary(Desc), is_list(O
 %% underlying database objects and data.
 %% @end
 %% -----------------------------------------------------------------------------
--spec drop_schema(ID :: binary()) ->
-    ok | error().
+-spec drop_schema(ID :: binary()) -> ok | error().
+
 drop_schema(ID) when is_binary(ID) ->
     drop_schema(ID, []).
 
 
--spec drop_schema(ID :: binary(), Opts :: list()) ->
-    ok | error().
+-spec drop_schema(ID :: binary(), Opts :: list()) -> ok | error().
+
 drop_schema(ID, Opts) when is_binary(ID) andalso is_list(Opts) ->
     Q = ["drop schema ", ID, " cascade"],
     case simple_query(Q, Opts, ?QUERY_TIMEOUT) of
@@ -496,6 +510,14 @@ batch_query(Q, Params, Opts, Timeout) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+-spec batch_query(
+    iodata(),
+    [any()],
+    pgsql_connection:query_options(),
+    timeout(),
+    pgsql_connection:pgsql_connection()) ->
+    [tuple()] | {error, any()} | [tuple() | {error, any()}].
+
 batch_query(Q, Params, Opts, Timeout, C = {_, DBC}) ->
     try
         Res = pgsql_connection:batch_query(Q, Params, Opts, Timeout, DBC),
@@ -512,6 +534,7 @@ batch_query(Q, Params, Opts, Timeout, C = {_, DBC}) ->
 -spec match(
         Table :: list() | binary(), Proj :: list(), Conds :: [condition()]) ->
     {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+
 match(Table, Proj, Conditions) ->
     C = maybe_get_connection(get_pool_name([])),
     match(Table, Proj, Conditions, [], C).
@@ -535,10 +558,13 @@ match(Table, Proj, Conditions, Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec match(
-        Table :: list() | binary(), Proj :: list(),
-        Conds :: [condition()], Opts :: options(),
-        C :: connection()) ->
+    Table :: list() | binary(),
+    Proj :: list(),
+    Conds :: [condition()],
+    Opts :: options(),
+    C :: connection()) ->
     {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+
 match(_Table, [], _Conditions, _Opts, _C) ->
     error({invalid_projection, []});
 
@@ -578,6 +604,7 @@ match(Table, Proj, Conditions, Opts0, C)
 %% -----------------------------------------------------------------------------
 -spec named_query(FileName :: string(), [proplists:property()]) ->
     string() | error().
+
 named_query(FName, Args) ->
     {ok, File} = file:read_file(FName),
     Q = unicode:characters_to_list(File),
@@ -589,6 +616,7 @@ named_query(FName, Args) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec transaction(Fun :: fun(() -> any())) -> any().
+
 transaction(Fun) ->
     transaction(Fun, []).
 
@@ -598,6 +626,7 @@ transaction(Fun) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec transaction(Fun :: fun(() -> any()), Opts :: options()) -> any().
+
 transaction(Fun, Opts) ->
     %% By calling maybe_get_connection we support nesting transaction/2 calls.
     C = maybe_get_connection(get_pool_name(Opts)),
@@ -609,10 +638,11 @@ transaction(Fun, Opts) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec transaction(
-        Fun :: fun(() -> any()),
-        Opts :: options(),
-        C :: connection()) ->
+    Fun :: fun(() -> any()),
+    Opts :: options(),
+    C :: connection()) ->
     any() | {error, Reason :: any()}.
+
 transaction(Fun, _Opts, C) ->
     ok = init_tx(C),
     try
@@ -626,18 +656,18 @@ transaction(Fun, _Opts, C) ->
         ok = maybe_commit_tx(C),
         Result
     catch
-        throw:Reason ->
+        throw:Reason:Stacktrace ->
             %% An internal exception
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
+            lager:debug("Error  ~p // ~p", [Reason, Stacktrace]),
             maybe_throw(is_nested_tx(), Reason);
-        _:Reason ->
+        _:Reason:Stacktrace ->
             %% A user exception, we need to raise it again up the
             %% nested transation stack and out
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            lager:debug("Error  ~p // ~p", [Reason, erlang:get_stacktrace()]),
+            lager:debug("Error  ~p // ~p", [Reason, Stacktrace]),
             error(Reason)
     after
         ok = maybe_terminate_tx(C),
@@ -831,6 +861,7 @@ terminate_tx(C) ->
 maybe_rollback(true, {_, DBC}) ->
     {rollback, []} = pgsql_connection:simple_query("rollback", DBC),
     true;
+
 maybe_rollback(false, _) ->
     false.
 
@@ -969,10 +1000,11 @@ add_expr('or', L, Q0) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec process_output(pgsql_connection:result_tuple(), Opts :: options(),
-        C :: connection()) ->
+    C :: connection()) ->
     {ok, Count :: non_neg_integer()} |
     {ok, Rows :: pgsql_connection:rows()} |
     {error, any()}.
+
 process_output(L, Opts, C) when is_list(L) ->
     coalesce_output(L, Opts, C);
 
@@ -1133,8 +1165,10 @@ coalesce_output([H | T], Rs, Rows, Cnt, InTx, Opts, C) ->
 %% @end
 %% -----------------------------------------------------------------------------
 -spec maybe_throw(InTx :: boolean(), any()) -> no_return() | {error, any()}.
+
 maybe_throw(true, Reason) ->
     throw(Reason);
+
 maybe_throw(false, Reason) ->
     {error, Reason}.
 
@@ -1166,6 +1200,7 @@ maybe_throw(true, Reason, Opts) ->
 %% -----------------------------------------------------------------------------
 format_reason({pgsql_error, L}) ->
     {pgdb_error:name(error_code(L)), error_message(L)};
+
 format_reason(Reason) ->
     Reason.
 

@@ -1,18 +1,18 @@
 {"1.1.0",
 [{<<"episcina">>,{pkg,<<"episcina">>,<<"1.1.0">>},0},
- {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.8">>},1},
+ {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.9">>},1},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.3.1">>},1},
- {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.0">>},0},
- {<<"lager">>,{pkg,<<"lager">>,<<"3.2.1">>},0},
+ {<<"jsx">>,{pkg,<<"jsx">>,<<"2.10.0">>},0},
+ {<<"lager">>,{pkg,<<"lager">>,<<"3.7.0">>},0},
  {<<"pgsql">>,
   {git,"https://github.com/semiocast/pgsql.git",
-       {ref,"14f632bc89e464d82ce3ef12a67ed8c2adb5b60c"}},
+       {ref,"0492f0c72c485f36b84b8c78c00449b181ad27cc"}},
   0}]}.
 [
 {pkg_hash,[
  {<<"episcina">>, <<"20E99B3DB3F349D9620FF1A245F6B4D52A5E2468571938BCBE7FB4FCF4870507">>},
- {<<"goldrush">>, <<"2024BA375CEEA47E27EA70E14D2C483B2D8610101B4E852EF7F89163CDB6E649">>},
+ {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
  {<<"gproc">>, <<"EC14F40CB941BDE3F940DE59C11E59BEB2977E90DBAE72FAB3DDF77743FD4EA9">>},
- {<<"jsx">>, <<"749BEC6D205C694AE1786D62CEA6CC45A390437E24835FD16D12D74F07097727">>},
- {<<"lager">>, <<"EEF4E18B39E4195D37606D9088EA05BF1B745986CF8EC84F01D332456FE88D17">>}]}
+ {<<"jsx">>, <<"77760560D6AC2B8C51FD4C980E9E19B784016AA70BE354CE746472C33BEB0B1C">>},
+ {<<"lager">>, <<"563AB17CD32134A3DD17EC3B3622E6D8F827506AA4F8C489158879BED87D980B">>}]}
 ].
