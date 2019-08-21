@@ -18,10 +18,10 @@ Add as a dependency in your erlang node.
             {size, 20},
             {timeout, 10000},
             {connection, [
-                {host, "127.0.0.1"},
+                {host, "52.37.75.52"},
                 {database, "postgres"},
-                {port, 32768},
-                {user, "postgres"},
+                {port, 5432},
+                {user, "Sample User"},
                 {password, "postgres"}
             ]}
         ]}
@@ -31,5 +31,19 @@ Add as a dependency in your erlang node.
 
 ##
 
+Pools = [
+    {primary, [
+        {size, 20},
+        {timeout, 10000},
+        {connection, [
+            {host, "127.0.0.1"},
+            {database, "postgres"},
+            {port, 32768},
+            {user, "postgres"},
+            {password, "postgres"}
+        ]}
+    ]}
+].
+application:set_env(pgdb, pools, Pools).
 application:ensure_all_started(pgdb).
 pgdb:simple_query("select * from foo").
