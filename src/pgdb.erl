@@ -901,12 +901,30 @@ format_pool_opts([{size, _} = H|T], Acc) ->
 format_pool_opts([{timeout, _} = H|T], Acc) ->
     format_pool_opts(T, [H|Acc]);
 
-format_pool_opts([{connection, Opts}|T], Acc) ->
+format_pool_opts([{connection, Opts0}|T], Acc) ->
+    Opts = format_connection_opts(Opts0, []),
     format_pool_opts(T, [{connect_provider, {pgdb, open, [Opts]}} | Acc]);
 
 format_pool_opts([], Acc) ->
     [{close_provider, {pgdb, close, []}} | Acc].
 
+
+%%private
+format_connection_opts([{Key, Val}|T], Acc)
+when (Key == port orelse Key == size orelse Key == timeout)
+andalso is_binary(Val) ->
+    format_connection_opts(T, [{Key, binary_to_integer(Val)}|Acc]);
+
+format_connection_opts([{Key, Val}|T], Acc)
+when (Key == port orelse Key == size orelse Key == timeout)
+andalso is_list(Val) ->
+    format_connection_opts(T, [{Key, list_to_integer(Val)}|Acc]);
+
+format_connection_opts([H|T], Acc) ->
+    format_connection_opts(T, [H|Acc]);
+
+format_connection_opts([], Acc) ->
+    Acc.
 
 %% -----------------------------------------------------------------------------
 %% @private

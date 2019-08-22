@@ -18,10 +18,10 @@ Add as a dependency in your erlang node.
             {size, 20},
             {timeout, 10000},
             {connection, [
-                {host, "52.37.75.52"},
+                {host, "localhost"},
                 {database, "postgres"},
                 {port, 5432},
-                {user, "Sample User"},
+                {user, "postgres"},
                 {password, "postgres"}
             ]}
         ]}
