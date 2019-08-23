@@ -59,11 +59,15 @@
 -type connection() :: {Pool :: atom(), pgsql_connection:pgsql_connection()}.
 
 
--type condition()       ::  {condition_op(), db_field(), any()}.
--type condition_op()    ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
+-type condition()       ::  {fun_op(), db_field()}
+                            | {eq_op(), db_field(), any()}.
+-type fun_op()          ::  is_null | is_not_null | 'or' | 'and'.
+-type eq_op()           ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
 -type db_field()        ::  binary().
 -type error() 			:: 	{error, Reason :: any()}.
 -type row()         	::  pgsql_connection:row().
+
+-type key_values()      ::  {list(), list()} | [proplists:property()] | map().
 
 -export_type([condition/0]).
 -export_type([error/0]).
@@ -93,6 +97,9 @@
 -export([list_schemas/1]).
 -export([lookup_schema/1]).
 -export([lookup_schema/2]).
+-export([insert/2]).
+-export([insert/3]).
+-export([insert/4]).
 -export([match/3]).
 -export([match/4]).
 -export([match/5]).
@@ -598,6 +605,74 @@ match(Table, Proj, Conditions, Opts0, C)
 
 %% -----------------------------------------------------------------------------
 %% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec insert(Table :: list() | binary(), KeyValues :: key_values()) ->
+    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+
+insert(Table, KeyValues) ->
+    C = maybe_get_connection(get_pool_name([])),
+    insert(Table, KeyValues, [], C).
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec insert(
+    Table :: list() | binary(),
+    KeyValues :: key_values(),
+    Opts :: [proplists:property()]) ->
+    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+
+insert(Table, KeyValues, Opts) ->
+    C = maybe_get_connection(get_pool_name([])),
+    insert(Table, KeyValues, Opts, C).
+
+
+%% -----------------------------------------------------------------------------
+%% @doc
+%% @end
+%% -----------------------------------------------------------------------------
+-spec insert(
+    Table :: list() | binary(),
+    KeyValues :: [proplists:property()] | map(),
+    Opts :: options(),
+    C :: connection()) ->
+    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+
+insert(_Table, [], _Opts, _C) ->
+    error({invalid_key_values, []});
+
+insert(_Table, Map, _Opts, _C) when map_size(Map) == 0 ->
+    error({invalid_key_values, Map});
+
+insert(_, {Keys, Values} = KV, _, _) when length(Keys) /= length(Values)->
+    error({invalid_key_values, KV});
+
+insert(Table, {Keys, Values}, Opts, C) ->
+    insert(Table, lists:zip(Keys, Values), Opts, C);
+
+insert(Table, KeyValues, Opts0, C)
+    when (is_list(Table) andalso Table /= [])
+    orelse (is_binary(Table) andalso Table /= <<>>) ->
+    {Columns, Params} = keyed_values_to_sql(KeyValues),
+    Vars = lists:join(
+        <<", ">>,
+        [pgdb_utils:var(X) || X <- lists:seq(1, length(Columns))]
+    ),
+    Q = [
+        <<"insert into ">>, Table,
+        <<" (">>, Columns , <<") VALUES (">>, Vars, <<");">>
+    ],
+    Timeout = case lists:keyfind(timeout, 1, Opts0) of
+        {timeout, Val} -> Val;
+        _ -> ?QUERY_TIMEOUT
+    end,
+    extended_query(lists:flatten(Q), Params, Opts0, Timeout, C).
+
+%% -----------------------------------------------------------------------------
+%% @doc
 %% Read a query named Name from pgdb Priv dir and replaces each placehoder
 %% in the form of $var with each with property of the same name in Args.
 %% @end
@@ -988,6 +1063,29 @@ conditions_to_sql(Op, [{IOp, Field, Value} | T], Q0, N, Params) ->
 
 conditions_to_sql(_Op, [], Q, N, Params) ->
     {Q, lists:flatten(Params), N}.
+
+
+%% private
+keyed_values_to_sql(Map) when is_map(Map) ->
+    keyed_values_to_sql(maps:to_list(Map));
+
+keyed_values_to_sql(L) when is_list(L) ->
+    keyed_values_to_sql(L, {[], []}).
+
+
+%% private
+keyed_values_to_sql([{_, undefined}|T], Acc) ->
+    keyed_values_to_sql(T, Acc);
+
+keyed_values_to_sql([{_, null}|T], Acc) ->
+    keyed_values_to_sql(T, Acc);
+
+keyed_values_to_sql([{Key, Value}|T], {A, B}) ->
+    keyed_values_to_sql(T, {[Key|A], [Value|B]});
+
+keyed_values_to_sql([], {A, B}) ->
+    {lists:reverse(A), lists:reverse(B)}.
+
 
 
 %% @private
