@@ -80,7 +80,7 @@ when is_binary(Schema), is_binary(Table), is_binary(Key) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec add(binary(), binary(), key(), value() | any(), list()) -> 
+-spec add(binary(), binary(), key(), value() | any(), list()) ->
     ok | no_return().
 
 add(Schema, Table, Key, Value, Opts)
@@ -304,7 +304,7 @@ when is_binary(Schema), is_binary(Table), is_list(Patterns), is_list(Opts0) ->
     end,
     Q = match_query(
         lists:keyfind(select, 1, Opts1), Schema, Table, Patterns, SortBy),
-    
+
     {Q1, Opts2} = case lists:keytake(lock, 1, Opts1) of
         false ->
             {Q, Opts1};
@@ -326,10 +326,10 @@ when is_binary(Schema), is_binary(Table), is_list(Opts) ->
 match_query(false, Schema, Table, Patterns, SortBy) ->
     [
         <<"select (value::text)::jsonb from ">>,
-        ?SCHEMA_TABLE(Schema, Table) | 
+        ?SCHEMA_TABLE(Schema, Table) |
         lists:append(
             match_where_clauses(Patterns),
-            match_sort_by_clause(SortBy))
+            match_order_by_clause(SortBy))
     ];
 
 match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
@@ -342,8 +342,8 @@ match_query({select, Fields}, Schema, Table, Patterns, SortBy) ->
         <<" from ">>,
         ?SCHEMA_TABLE(Schema, Table) |
         lists:append([
-            match_where_clauses(Patterns), 
-            match_sort_by_clause(SortBy), 
+            match_where_clauses(Patterns),
+            match_order_by_clause(SortBy),
             [<<") as row;">>]
         ])
     ].
@@ -380,7 +380,7 @@ match_where_clauses(Patterns) ->
     match_where_clauses(Patterns, []).
 
 %% @private
-% match_where_clauses([{'and', Ps}|T], Acc) when is_list(Ps) ->   
+% match_where_clauses([{'and', Ps}|T], Acc) when is_list(Ps) ->
 %     Conj = pgdb_utils:join_iolist([match_where_clause(P) || P <- Ps], <<" AND">>),
 %     match_where_clauses(T, [Conj|Acc]);
 
@@ -422,30 +422,37 @@ match_where_clauses([], L) ->
     [<<" WHERE ">> | Clauses].
 
 
-%% @private
-match_sort_by_clause([]) ->
+
+match_order_by_clause([]) ->
     [];
 
-match_sort_by_clause(Fields) ->
+match_order_by_clause(Fields) ->
     L = [
         begin
             case X of
-                {Bin, asc} when is_binary(Bin) ->
+                {Value, asc} when is_list(Value) ->
+                    Bin = list_to_bitstring(Value),
                     <<"value ->> '", Bin/binary, "' ASC">>;
-                {Bin, desc} when is_binary(Bin) ->
+                {Value, asc} when is_binary(Value) ->
+                    <<"value ->> '", Value/binary, "' ASC">>;
+                {Value, asc} when is_atom(Value) ->
+                    Bin = list_to_bitstring(atom_to_list(Value)),
+                    <<"value ->> '", Bin/binary, "' ASC">>;
+
+                {Value, desc} when is_list(Value) ->
+                    Bin = list_to_bitstring(Value),
                     <<"value ->> '", Bin/binary, "' DESC">>;
-                {F, asc} when is_atom(F) ->
-                    Bin = list_to_bitstring(atom_to_list(F)),
-                    <<"value ->> '", Bin/binary, "' ASC">>;
-                {F, desc} when is_atom(F) ->
-                    Bin = list_to_bitstring(atom_to_list(F)),
+                {Value, desc} when is_binary(Value) ->
+                    <<"value ->> '", Value/binary, "' DESC">>;
+                {Value, desc} when is_atom(Value) ->
+                    Bin = list_to_bitstring(atom_to_list(Value)),
                     <<"value ->> '", Bin/binary, "' DESC">>
             end
         end || X <- Fields
     ],
     [<<" ORDER BY ">> | pgdb_utils:join_iolist(L, <<", ">>)].
 
-    
+
 % %% @private
 % match_where_clause({'not', <<>>}) ->
 %     [];
