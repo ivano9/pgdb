@@ -1,6 +1,6 @@
 %% =============================================================================
 %%
-%% Copyright (c) 2016 Ngineo Limited t/a Leapsight. All Rights Reserved.
+%% Copyright (c) 2016 - 2019 Ngineo Limited t/a Leapsight. All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -20,21 +20,21 @@
 
 
 
--define(SELECT_SCHEMAS, 
+-define(SELECT_SCHEMAS,
     "SELECT nsp.nspname, description \n"
-    "FROM pg_namespace nsp \n"  
-    "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"  
+    "FROM pg_namespace nsp \n"
+    "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"
     "WHERE pg_get_userbyid(nspowner) = current_user \n"
     "ORDER BY nspname"
 ).
 
--define(SELECT_SCHEMA(Args), 
+-define(SELECT_SCHEMA(Args),
     pgdb_utils:subst(
-        "SELECT nsp.nspname, description \n" 
-        "FROM pg_namespace nsp \n" 
-        "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"  
+        "SELECT nsp.nspname, description \n"
+        "FROM pg_namespace nsp \n"
+        "LEFT OUTER JOIN pg_description des ON des.objoid=nsp.oid \n"
         "WHERE pg_get_userbyid(nspowner) = current_user \n"
         "AND nsp.nspname = '$id' \n"
-        "ORDER BY nspname", 
+        "ORDER BY nspname",
         Args)
 ).

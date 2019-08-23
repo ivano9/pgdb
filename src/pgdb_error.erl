@@ -2,7 +2,7 @@
 %%
 %% pdbg_error: mapping of PGSQL errors to atoms
 %%
-%% Copyright (c) 2016 Ngineo Limited t/a Leapsight. All Rights Reserved.
+%% Copyright (c) 2016 - 2019 Ngineo Limited t/a Leapsight. All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file

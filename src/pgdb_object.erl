@@ -2,7 +2,7 @@
 %%
 %% pgdb_object.erl
 %%
-%% Copyright (c) 2016 Ngineo Limited t/a Leapsight. All Rights Reserved.
+%% Copyright (c) 2016 - 2019 Ngineo Limited t/a Leapsight. All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,9 +27,9 @@
 %% - Every entity maps to one db table
 %% - There is only one primary key column
 %% - Read-only (immutable) columns need to have a default value in the db,
-%%   pgdb_object will not include this columns in the INSERT or UPDATE 
+%%   pgdb_object will not include this columns in the INSERT or UPDATE
 %%   operations.
-%% - The primary_key is not read-only as we allow to set its value during 
+%% - The primary_key is not read-only as we allow to set its value during
 %%   INSERT, but is not included in the UDPATE i.e. is immutable once set
 %% @end
 -module(pgdb_object).
