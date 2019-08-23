@@ -567,7 +567,7 @@ match(Table, Proj, Conditions, Opts) ->
 -spec match(
     Table :: list() | binary(),
     Proj :: list(),
-    Conds :: [condition()],
+    Conds :: [condition()] | map(),
     Opts :: options(),
     C :: connection()) ->
     {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
@@ -590,17 +590,19 @@ match(Table, Proj, Conditions, Opts0, C)
         Where
     ],
     {Q1, Params} = conditions_to_sql(Conditions, Q0),
-    {Q2, Opts1} = case lists:keytake(lock, 1, Opts0) of
+    Q2 = maybe_add_order_by_clause(Q1, Opts0),
+    {Q3, Opts1} = case lists:keytake(lock, 1, Opts0) of
         false ->
-            {Q1, Opts0};
+            {Q2, Opts0};
         {value, {lock, exclusive}, NewOpts} ->
-            NewQ = lists:append(Q1, [<<" for update">>]),
+            NewQ = lists:append(Q2, [<<" for update">>]),
             {NewQ, NewOpts};
         {value, {lock, shared}, NewOpts} ->
-            NewQ = lists:append(Q1, [<<" for share">>]),
+            NewQ = lists:append(Q2, [<<" for share">>]),
             {NewQ, NewOpts}
     end,
-    extended_query(lists:flatten(Q2), Params, Opts1, ?QUERY_TIMEOUT, C).
+    Query = lists:flatten(Q3),
+    extended_query(Query, Params, Opts1, ?QUERY_TIMEOUT, C).
 
 
 %% -----------------------------------------------------------------------------
@@ -608,7 +610,7 @@ match(Table, Proj, Conditions, Opts0, C)
 %% @end
 %% -----------------------------------------------------------------------------
 -spec insert(Table :: list() | binary(), KeyValues :: key_values()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, Count :: non_neg_integer()} | error().
 
 insert(Table, KeyValues) ->
     C = maybe_get_connection(get_pool_name([])),
@@ -623,7 +625,7 @@ insert(Table, KeyValues) ->
     Table :: list() | binary(),
     KeyValues :: key_values(),
     Opts :: [proplists:property()]) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, Count :: non_neg_integer()} | error().
 
 insert(Table, KeyValues, Opts) ->
     C = maybe_get_connection(get_pool_name([])),
@@ -639,7 +641,7 @@ insert(Table, KeyValues, Opts) ->
     KeyValues :: [proplists:property()] | map(),
     Opts :: options(),
     C :: connection()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, Count :: non_neg_integer()} | error().
 
 insert(_Table, [], _Opts, _C) ->
     error({invalid_key_values, []});
@@ -1411,4 +1413,43 @@ is_in_tx() ->
     get(tx_connection) =/= undefined.
 
 
+%% @private
+-spec maybe_add_order_by_clause(list(), list()) -> list().
 
+maybe_add_order_by_clause(Q, Opts) ->
+    case lists:keyfind(order_by, 1, Opts) of
+        false ->
+            Q;
+        {order_by, List} ->
+            [Q, order_by_clause(List)]
+    end.
+
+
+order_by_clause([]) ->
+    [];
+
+order_by_clause(Fields) ->
+    L = [
+        begin
+            case X of
+                {Column, asc} when is_list(Column) ->
+                    Bin = list_to_bitstring(Column),
+                    <<Bin/binary, " ASC">>;
+                {Column, asc} when is_binary(Column) ->
+                    <<Column/binary, " ASC">>;
+                {Column, asc} when is_atom(Column) ->
+                    Bin = list_to_bitstring(atom_to_list(Column)),
+                    <<Bin/binary, " ASC">>;
+
+                {Column, desc} when is_list(Column) ->
+                    Bin = list_to_bitstring(Column),
+                    <<Bin/binary, " DESC">>;
+                {Column, desc} when is_binary(Column) ->
+                    <<Column/binary, " DESC">>;
+                {Column, desc} when is_atom(Column) ->
+                    Bin = list_to_bitstring(atom_to_list(Column)),
+                    <<Bin/binary, " DESC">>
+            end
+        end || X <- Fields
+    ],
+    [<<" ORDER BY ">> | pgdb_utils:join_iolist(L, <<", ">>)].
