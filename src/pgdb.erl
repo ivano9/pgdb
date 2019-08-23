@@ -656,14 +656,11 @@ insert(Table, {Keys, Values}, Opts, C) ->
 insert(Table, KeyValues, Opts0, C)
     when (is_list(Table) andalso Table /= [])
     orelse (is_binary(Table) andalso Table /= <<>>) ->
-    {Columns, Params} = keyed_values_to_sql(KeyValues),
-    Vars = lists:join(
-        <<", ">>,
-        [pgdb_utils:var(X) || X <- lists:seq(1, length(Columns))]
-    ),
+    {ColString, Vars, Params} = keyed_values_to_sql(KeyValues),
+
     Q = [
         <<"insert into ">>, Table,
-        <<" (">>, Columns , <<") VALUES (">>, Vars, <<");">>
+        <<" (">>, ColString , <<") VALUES (">>, Vars, <<");">>
     ],
     Timeout = case lists:keyfind(timeout, 1, Opts0) of
         {timeout, Val} -> Val;
@@ -1084,7 +1081,12 @@ keyed_values_to_sql([{Key, Value}|T], {A, B}) ->
     keyed_values_to_sql(T, {[Key|A], [Value|B]});
 
 keyed_values_to_sql([], {A, B}) ->
-    {lists:reverse(A), lists:reverse(B)}.
+    ColString = lists:join(<<", ">>, lists:reverse(A)),
+    Vars = lists:join(
+        <<", ">>,
+        [pgdb_utils:var(X) || X <- lists:seq(1, length(A))]
+    ),
+    {ColString, Vars, lists:reverse(B)}.
 
 
 
