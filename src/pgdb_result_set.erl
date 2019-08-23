@@ -24,7 +24,7 @@
 -module(pgdb_result_set).
 
 -record(pgdb_result_set, {
-    head :: [binary()],
+    head :: [binary() | '_'],
     tuples :: [tuple()]
 }).
 -type pgdb_result_set() :: #pgdb_result_set{}.

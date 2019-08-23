@@ -492,6 +492,9 @@ extended_query(Q, Params, Opts, Timeout, C = {_, DBC}) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+-spec batch_query(iodata(), [any()]) ->
+    [tuple()] | {error, any()} | [tuple() | {error, any()}].
+
 batch_query(Q, Params) ->
     batch_query(Q, Params, [], ?QUERY_TIMEOUT).
 
@@ -500,6 +503,9 @@ batch_query(Q, Params) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+-spec batch_query(iodata(), [any()], pgsql_connection:query_options()) ->
+    [tuple()] | {error, any()} | [tuple() | {error, any()}].
+
 batch_query(Q, Params, Opts) ->
     batch_query(Q, Params, Opts, ?QUERY_TIMEOUT).
 
@@ -508,6 +514,13 @@ batch_query(Q, Params, Opts) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+-spec batch_query(
+    iodata(),
+    [any()],
+    pgsql_connection:query_options(),
+    timeout()) ->
+    [tuple()] | {error, any()} | [tuple() | {error, any()}].
+
 batch_query(Q, Params, Opts, Timeout) ->
     C = maybe_get_connection(get_pool_name(Opts)),
     batch_query(Q, Params, Opts, Timeout, C).
@@ -522,13 +535,19 @@ batch_query(Q, Params, Opts, Timeout) ->
     [any()],
     pgsql_connection:query_options(),
     timeout(),
-    pgsql_connection:pgsql_connection()) ->
+    connection()) ->
     [tuple()] | {error, any()} | [tuple() | {error, any()}].
 
-batch_query(Q, Params, Opts, Timeout, C = {_, DBC}) ->
+batch_query(Q, Params, Opts, Timeout, {_, DBC} = C) ->
     try
         Res = pgsql_connection:batch_query(Q, Params, Opts, Timeout, DBC),
         process_output(Res, Opts, C)
+    catch
+        _:Reason ->
+            _ = lager:error(
+                "Error while processing query; reason=~p, query=~p",
+                [Reason, Q]
+            )
     after
         maybe_return_connection(C)
     end.
@@ -540,7 +559,7 @@ batch_query(Q, Params, Opts, Timeout, C = {_, DBC}) ->
 %% -----------------------------------------------------------------------------
 -spec match(
         Table :: list() | binary(), Proj :: list(), Conds :: [condition()]) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, RS :: [tuple()] | integer()} | error().
 
 match(Table, Proj, Conditions) ->
     C = maybe_get_connection(get_pool_name([])),
@@ -554,7 +573,7 @@ match(Table, Proj, Conditions) ->
 -spec match(
         Table :: list() | binary(), Proj :: list(), Conds :: [condition()],
         Opts :: options()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, [tuple()] | integer()} | error().
 match(Table, Proj, Conditions, Opts) ->
     C = maybe_get_connection(get_pool_name(Opts)),
     match(Table, Proj, Conditions, Opts, C).
@@ -570,7 +589,7 @@ match(Table, Proj, Conditions, Opts) ->
     Conds :: [condition()] | map(),
     Opts :: options(),
     C :: connection()) ->
-    {ok, RS :: pgdb_result_set:pgdb_result_set()} | error().
+    {ok, [tuple()] | integer()} | error().
 
 match(_Table, [], _Conditions, _Opts, _C) ->
     error({invalid_projection, []});
@@ -1409,6 +1428,8 @@ maybe_return_connection(C) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
+- spec is_in_tx() -> boolean().
+
 is_in_tx() ->
     get(tx_connection) =/= undefined.
 

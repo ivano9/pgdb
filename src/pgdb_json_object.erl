@@ -29,7 +29,8 @@
 
 -type key()             ::  binary().
 -type value()           ::  binary() | map() | proplist:proplist().
-
+-type pattern()         ::  {'not', term}
+                            | term().
 -export_type([key/0]).
 -export_type([value/0]).
 
@@ -291,7 +292,7 @@ match(Schema, Table, Pattern) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
--spec match(binary(), binary(), binary(), list()) ->
+-spec match(binary(), binary(), pattern() | [pattern()], list()) ->
     [map() | proplists:proplists()] | iolist() | no_return().
 
 match(Schema, Table, Patterns, Opts0)
