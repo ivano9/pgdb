@@ -38,7 +38,7 @@ Pools = [
         {connection, [
             {host, "127.0.0.1"},
             {database, "postgres"},
-            {port, 32768},
+            {port, 5432},
             {user, "postgres"},
             {password, "postgres"}
         ]}

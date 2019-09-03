@@ -91,6 +91,8 @@
 -export([fetch_schema/1]).
 -export([fetch_schema/2]).
 -export([get_connection/1]).
+-export([get_connection/2]).
+-export([get_connection/3]).
 -export([has_schema/1]).
 -export([has_schema/2]).
 -export([list_schemas/0]).
@@ -991,7 +993,13 @@ format_pool_opts(Opts) ->
 format_pool_opts([{size, _} = H|T], Acc) ->
     format_pool_opts(T, [H|Acc]);
 
-format_pool_opts([{timeout, _} = H|T], Acc) ->
+format_pool_opts([{timeout, Val}|T], Acc) when is_binary(Val) ->
+    format_pool_opts(T, [{timeout, binary_to_integer(Val)}|Acc]);
+
+format_pool_opts([{timeout, Val}|T], Acc) when is_list(Val) ->
+    format_pool_opts(T, [{timeout, list_to_integer(Val)}|Acc]);
+
+format_pool_opts([{timeout, Val} = H|T], Acc) when is_integer(Val) ->
     format_pool_opts(T, [H|Acc]);
 
 format_pool_opts([{connection, Opts0}|T], Acc) ->
