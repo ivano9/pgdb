@@ -22,6 +22,7 @@
  [{description, "An OTP library"},
     {vsn, "0.2.0"},
     {registered, []},
+    {mod, {pgdb_app, []}},
     {applications,
     [
         kernel,
@@ -32,7 +33,6 @@
     ]},
     {env,[]},
     {modules, []},
-
     {maintainers, ["Leapsight"]},
     {licenses, ["Apache 2"]},
     {links, []}
