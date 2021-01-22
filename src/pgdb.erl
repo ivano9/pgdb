@@ -549,7 +549,8 @@ batch_query(Q, Params, Opts, Timeout, {_, DBC} = C) ->
             _ = lager:error(
                 "Error while processing query; reason=~p, query=~p",
                 [Reason, Q]
-            )
+            ),
+            {error, Reason}
     after
         maybe_return_connection(C)
     end.
