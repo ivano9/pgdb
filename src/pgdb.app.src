@@ -27,7 +27,6 @@
     [
         kernel,
         stdlib,
-        lager,
         pgsql,
         episcina
     ]},

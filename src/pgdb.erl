@@ -204,15 +204,16 @@ get_connection(Pool, Timeout) ->
 %% @end
 %% -----------------------------------------------------------------------------
 get_connection(PoolName, Timeout, Retries) ->
-    case catch episcina:get_connection(PoolName, Timeout) of
+    try episcina:get_connection(PoolName, Timeout) of
         {ok, Pid} ->
             {PoolName, {pgsql_connection, Pid}};
         {error, timeout} ->
-            error(timeout);
-        {'EXIT', {timeout, _}} when Retries =< ?GET_CONN_RETRIES ->
+            error(timeout)
+    catch
+        _:{timeout, _} when Retries =< ?GET_CONN_RETRIES ->
             ok = try_reconnect(PoolName),
             get_connection(PoolName, Timeout, Retries + 1);
-        {'EXIT', {timeout, _}} ->
+        _:{timeout, _} ->
             error(timeout)
     end.
 
@@ -546,7 +547,7 @@ batch_query(Q, Params, Opts, Timeout, {_, DBC} = C) ->
         process_output(Res, Opts, C)
     catch
         _:Reason ->
-            _ = lager:error(
+            _ = logger:error(
                 "Error while processing query; reason=~p, query=~p",
                 [Reason, Q]
             ),
@@ -756,14 +757,14 @@ transaction(Fun, _Opts, C) ->
             %% An internal exception
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            lager:debug("Error  ~p // ~p", [Reason, Stacktrace]),
+            logger:debug("Error  ~p // ~p", [Reason, Stacktrace]),
             maybe_throw(is_nested_tx(), Reason);
         _:Reason:Stacktrace ->
             %% A user exception, we need to raise it again up the
             %% nested transation stack and out
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            lager:debug("Error  ~p // ~p", [Reason, Stacktrace]),
+            logger:debug("Error  ~p // ~p", [Reason, Stacktrace]),
             error(Reason)
     after
         ok = maybe_terminate_tx(C),
@@ -1230,7 +1231,7 @@ process_output({commit, []}, Opts, C) ->
             %% For now we do not do anything smart and fail
             Desc = "Explicit transaction termination within implict transaction may have caused and inconsistent database state.",
             Reason = {inconsistent_state, Desc},
-            lager:warning(Desc),
+            logger:warning(Desc),
             _ = maybe_rollback(true, C),
             maybe_throw(true, format_reason(Reason), Opts);
         false ->
