@@ -3,8 +3,8 @@
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.3.1">>},1},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.10.0">>},0},
  {<<"pgsql">>,
-  {git,"https://github.com/semiocast/pgsql.git",
-       {ref,"0492f0c72c485f36b84b8c78c00449b181ad27cc"}},
+  {git,"https://github.com/ivano9/pgsql.git",
+       {ref,"40469c87dcf3da1b4c5e98d97e8ab835d830046b"}},
   0}]}.
 [
 {pkg_hash,[
