@@ -1,9 +1,7 @@
-{"1.1.0",
+{"1.2.0",
 [{<<"episcina">>,{pkg,<<"episcina">>,<<"1.1.0">>},0},
- {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.9">>},1},
  {<<"gproc">>,{pkg,<<"gproc">>,<<"0.3.1">>},1},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.10.0">>},0},
- {<<"lager">>,{pkg,<<"lager">>,<<"3.7.0">>},0},
  {<<"pgsql">>,
   {git,"https://github.com/semiocast/pgsql.git",
        {ref,"0492f0c72c485f36b84b8c78c00449b181ad27cc"}},
@@ -11,8 +9,10 @@
 [
 {pkg_hash,[
  {<<"episcina">>, <<"20E99B3DB3F349D9620FF1A245F6B4D52A5E2468571938BCBE7FB4FCF4870507">>},
- {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
  {<<"gproc">>, <<"EC14F40CB941BDE3F940DE59C11E59BEB2977E90DBAE72FAB3DDF77743FD4EA9">>},
- {<<"jsx">>, <<"77760560D6AC2B8C51FD4C980E9E19B784016AA70BE354CE746472C33BEB0B1C">>},
- {<<"lager">>, <<"563AB17CD32134A3DD17EC3B3622E6D8F827506AA4F8C489158879BED87D980B">>}]}
+ {<<"jsx">>, <<"77760560D6AC2B8C51FD4C980E9E19B784016AA70BE354CE746472C33BEB0B1C">>}]},
+{pkg_hash_ext,[
+ {<<"episcina">>, <<"16238717BFBC8CB226342F6B098BB1FAFB48C7547265A10AD3E6E83899ABC46F">>},
+ {<<"gproc">>, <<"3C449925A5CBF57CC40D13C6C282BC1080B5ED3BAD97E1ACDBE969FD63A65FCE">>},
+ {<<"jsx">>, <<"9A83E3704807298016968DB506F9FAD0F027DE37546EB838B3AE1064C3A0AD62">>}]}
 ].
