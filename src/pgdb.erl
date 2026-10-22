@@ -58,14 +58,13 @@
 
 -type connection() :: {Pool :: atom(), pgsql_connection:pgsql_connection()}.
 
-
 -type condition()       ::  {fun_op(), db_field()}
                             | {eq_op(), db_field(), any()}.
 -type fun_op()          ::  is_null | is_not_null | 'or' | 'and'.
 -type eq_op()           ::  '=' | '<' | '>' | '!=' | '=<' | '>='.
 -type db_field()        ::  binary().
--type error() 			:: 	{error, Reason :: any()}.
--type row()         	::  pgsql_connection:row().
+-type error()           ::  {error, Reason :: any()}.
+-type row()             ::  pgsql_connection:row().
 
 -type key_values()      ::  {list(), list()} | [proplists:property()] | map().
 
@@ -117,16 +116,9 @@
 -export([update_schema/2]).
 
 
-
-
-
-
-
 %% ============================================================================
 %% CONNECTION POOL CALLBACKS
 %% ============================================================================
-
-
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -159,7 +151,6 @@ close(Pid) ->
 %% ============================================================================
 %% CONNECTIONS
 %% ============================================================================
-
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -204,15 +195,24 @@ get_connection(Pool, Timeout) ->
 %% @end
 %% -----------------------------------------------------------------------------
 get_connection(PoolName, Timeout, Retries) ->
+    _ = case gproc:where({n, l, {epna_pool, PoolName}}) of
+        undefined -> try_reconnect(PoolName);
+        _Pid -> ok
+    end,
     try episcina:get_connection(PoolName, Timeout) of
         {ok, Pid} ->
             {PoolName, {pgsql_connection, Pid}};
         {error, timeout} ->
             error(timeout)
     catch
+        _:timeout when Retries =< ?GET_CONN_RETRIES ->
+            ok = try_reconnect(PoolName),
+            get_connection(PoolName, Timeout, Retries + 1);
         _:{timeout, _} when Retries =< ?GET_CONN_RETRIES ->
             ok = try_reconnect(PoolName),
             get_connection(PoolName, Timeout, Retries + 1);
+        _:timeout ->
+            error(timeout);
         _:{timeout, _} ->
             error(timeout)
     end.
@@ -233,7 +233,6 @@ return_connection({PoolName, {pgsql_connection, Pid}}) ->
 %% ============================================================================
 %% SCHEMA MANAGEMENT
 %% ============================================================================
-
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -327,7 +326,7 @@ create_schema(SQL, Name) when is_binary(Name) ->
     {ok, row()} | error().
 
 create_schema(SQL, Name, Desc) ->
-     create_schema(SQL, Name, Desc, []).
+    create_schema(SQL, Name, Desc, []).
 
 
 -spec create_schema(
@@ -343,7 +342,6 @@ create_schema(SQL, Name, Desc, Opts)
         {error, _} = Error ->
             Error
     end.
-
 
 
 %% -----------------------------------------------------------------------------
@@ -409,11 +407,9 @@ list_schemas(Opts) ->
     simple_query(?SELECT_SCHEMAS, Opts, ?QUERY_TIMEOUT).
 
 
-
 %% ============================================================================
 %% QUERIES
 %% ============================================================================
-
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -578,6 +574,7 @@ match(Table, Proj, Conditions) ->
         Table :: list() | binary(), Proj :: list(), Conds :: [condition()],
         Opts :: options()) ->
     {ok, [tuple()] | integer()} | error().
+
 match(Table, Proj, Conditions, Opts) ->
     C = maybe_get_connection(get_pool_name(Opts)),
     match(Table, Proj, Conditions, Opts, C).
@@ -672,7 +669,7 @@ insert(_Table, [], _Opts, _C) ->
 insert(_Table, Map, _Opts, _C) when map_size(Map) == 0 ->
     error({invalid_key_values, Map});
 
-insert(_, {Keys, Values} = KV, _, _) when length(Keys) /= length(Values)->
+insert(_, {Keys, Values} = KV, _, _) when length(Keys) /= length(Values) ->
     error({invalid_key_values, KV});
 
 insert(Table, {Keys, Values}, Opts, C) ->
@@ -685,13 +682,14 @@ insert(Table, KeyValues, Opts0, C)
 
     Q = [
         <<"insert into ">>, Table,
-        <<" (">>, ColString , <<") VALUES (">>, Vars, <<");">>
+        <<" (">>, ColString, <<") VALUES (">>, Vars, <<");">>
     ],
     Timeout = case lists:keyfind(timeout, 1, Opts0) of
         {timeout, Val} -> Val;
         _ -> ?QUERY_TIMEOUT
     end,
     extended_query(lists:flatten(Q), Params, Opts0, Timeout, C).
+
 
 %% -----------------------------------------------------------------------------
 %% @doc
@@ -757,14 +755,14 @@ transaction(Fun, _Opts, C) ->
             %% An internal exception
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            logger:debug("Error  ~p // ~p", [Reason, Stacktrace]),
+            logger:debug("Error ~p // ~p", [Reason, Stacktrace]),
             maybe_throw(is_nested_tx(), Reason);
         _:Reason:Stacktrace ->
             %% A user exception, we need to raise it again up the
             %% nested transation stack and out
             %% We force a rollback
             _ = maybe_rollback(true, C),
-            logger:debug("Error  ~p // ~p", [Reason, Stacktrace]),
+            logger:debug("Error ~p // ~p", [Reason, Stacktrace]),
             error(Reason)
     after
         ok = maybe_terminate_tx(C),
@@ -772,11 +770,9 @@ transaction(Fun, _Opts, C) ->
     end.
 
 
-
 %% ============================================================================
 %% PRIVATE
 %% ============================================================================
-
 
 %% -----------------------------------------------------------------------------
 %% @private
@@ -975,6 +971,8 @@ try_reconnect(PoolName) ->
             case episcina:start_pool(format_pool(Conf)) of
                 {ok, _} ->
                     ok;
+                {error, {already_started, _}} ->
+                    ok;
                 {error, Reason} ->
                     error(Reason)
             end;
@@ -992,19 +990,19 @@ format_pool({PoolName, Opts}) ->
 format_pool_opts(Opts) ->
     format_pool_opts(Opts, []).
 
-format_pool_opts([{size, _} = H|T], Acc) ->
-    format_pool_opts(T, [H|Acc]);
+format_pool_opts([{size, _} = H | T], Acc) ->
+    format_pool_opts(T, [H | Acc]);
 
-format_pool_opts([{timeout, Val}|T], Acc) when is_binary(Val) ->
-    format_pool_opts(T, [{timeout, binary_to_integer(Val)}|Acc]);
+format_pool_opts([{timeout, Val} | T], Acc) when is_binary(Val) ->
+    format_pool_opts(T, [{timeout, binary_to_integer(Val)} | Acc]);
 
-format_pool_opts([{timeout, Val}|T], Acc) when is_list(Val) ->
-    format_pool_opts(T, [{timeout, list_to_integer(Val)}|Acc]);
+format_pool_opts([{timeout, Val} | T], Acc) when is_list(Val) ->
+    format_pool_opts(T, [{timeout, list_to_integer(Val)} | Acc]);
 
-format_pool_opts([{timeout, Val} = H|T], Acc) when is_integer(Val) ->
-    format_pool_opts(T, [H|Acc]);
+format_pool_opts([{timeout, Val} = H | T], Acc) when is_integer(Val) ->
+    format_pool_opts(T, [H | Acc]);
 
-format_pool_opts([{connection, Opts0}|T], Acc) ->
+format_pool_opts([{connection, Opts0} | T], Acc) ->
     Opts = format_connection_opts(Opts0, []),
     format_pool_opts(T, [{connect_provider, {pgdb, open, [Opts]}} | Acc]);
 
@@ -1012,22 +1010,23 @@ format_pool_opts([], Acc) ->
     [{close_provider, {pgdb, close, []}} | Acc].
 
 
-%%private
-format_connection_opts([{Key, Val}|T], Acc)
-when (Key == port orelse Key == size orelse Key == timeout)
-andalso is_binary(Val) ->
-    format_connection_opts(T, [{Key, binary_to_integer(Val)}|Acc]);
+%% @private
+format_connection_opts([{Key, Val} | T], Acc)
+    when (Key == port orelse Key == size orelse Key == timeout)
+    andalso is_binary(Val) ->
+    format_connection_opts(T, [{Key, binary_to_integer(Val)} | Acc]);
 
-format_connection_opts([{Key, Val}|T], Acc)
-when (Key == port orelse Key == size orelse Key == timeout)
-andalso is_list(Val) ->
-    format_connection_opts(T, [{Key, list_to_integer(Val)}|Acc]);
+format_connection_opts([{Key, Val} | T], Acc)
+    when (Key == port orelse Key == size orelse Key == timeout)
+    andalso is_list(Val) ->
+    format_connection_opts(T, [{Key, list_to_integer(Val)} | Acc]);
 
-format_connection_opts([H|T], Acc) ->
-    format_connection_opts(T, [H|Acc]);
+format_connection_opts([H | T], Acc) ->
+    format_connection_opts(T, [H | Acc]);
 
 format_connection_opts([], Acc) ->
     Acc.
+
 
 %% -----------------------------------------------------------------------------
 %% @private
@@ -1093,7 +1092,7 @@ conditions_to_sql(_Op, [], Q, N, Params) ->
     {Q, lists:flatten(Params), N}.
 
 
-%% private
+%% @private
 keyed_values_to_sql(Map) when is_map(Map) ->
     keyed_values_to_sql(maps:to_list(Map));
 
@@ -1101,15 +1100,15 @@ keyed_values_to_sql(L) when is_list(L) ->
     keyed_values_to_sql(L, {[], []}).
 
 
-%% private
-keyed_values_to_sql([{_, undefined}|T], Acc) ->
+%% @private
+keyed_values_to_sql([{_, undefined} | T], Acc) ->
     keyed_values_to_sql(T, Acc);
 
-keyed_values_to_sql([{_, null}|T], Acc) ->
+keyed_values_to_sql([{_, null} | T], Acc) ->
     keyed_values_to_sql(T, Acc);
 
-keyed_values_to_sql([{Key, Value}|T], {A, B}) ->
-    keyed_values_to_sql(T, {[Key|A], [Value|B]});
+keyed_values_to_sql([{Key, Value} | T], {A, B}) ->
+    keyed_values_to_sql(T, {[Key | A], [Value | B]});
 
 keyed_values_to_sql([], {A, B}) ->
     ColString = lists:join(<<", ">>, lists:reverse(A)),
@@ -1118,7 +1117,6 @@ keyed_values_to_sql([], {A, B}) ->
         [pgdb_utils:var(X) || X <- lists:seq(1, length(A))]
     ),
     {ColString, Vars, lists:reverse(B)}.
-
 
 
 %% @private
@@ -1322,7 +1320,6 @@ maybe_throw(false, Reason) ->
     {error, Reason}.
 
 
-
 %% -----------------------------------------------------------------------------
 %% @private
 %% @doc
@@ -1438,7 +1435,7 @@ maybe_return_connection(C) ->
 %% @doc
 %% @end
 %% -----------------------------------------------------------------------------
-- spec is_in_tx() -> boolean().
+-spec is_in_tx() -> boolean().
 
 is_in_tx() ->
     get(tx_connection) =/= undefined.
